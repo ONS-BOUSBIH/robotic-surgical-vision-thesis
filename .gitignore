@@ -1,0 +1,39 @@
+# Large Files (NEVER upload these)
+*.jpg
+*.png
+*.jpeg
+*.zip
+
+data/
+weights/
+*.pth
+*.pt
+*.db
+
+# Python Trash
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+
+# Framework specific
+mmpose/ 
+HRNet-Human-Pose-Estimation/
+work_dirs/
+**/runs*/
+**/predict*/
+**/val*/
+# Experiment folders and training logs
+Experiment*/
+logs/
+training_checkpoints*/
+training_chekpoints*/
+boxplots/
+*.csv
+
+# OS generated files
+.DS_Store
+.bash_history
+.bash_rc
+.condarc
+.profile
+.viminfo
