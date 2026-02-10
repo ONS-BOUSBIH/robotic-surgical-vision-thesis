@@ -66,14 +66,6 @@ class SurgPoseDatasetOneInstance(Dataset):
                         "obj_id": obj["id"]
                     })
             
-            
-            # for img_name in sorted(os.listdir(img_dir)):
-            #     if img_name.endswith(".jpg"):
-            #         base = os.path.splitext(img_name)[0]
-            #         ann_path = os.path.join(kp_dir, f"{base}.yaml")
-            #         if os.path.exists(ann_path):
-            #             self.samples.append((os.path.join(img_dir, img_name), ann_path))
-
         self.transform = transforms.Compose([
             transforms.Resize((self.input_h, self.input_w)), 
             transforms.ToTensor(),
@@ -89,19 +81,7 @@ class SurgPoseDatasetOneInstance(Dataset):
         return len(self.samples)
     
     def __getitem__(self, idx):
-        # img_path, ann_path = self.samples[idx]
-
-        # img = cv2.imread(img_path)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # img = Image.fromarray(img)
         
-        
-        # with open(ann_path, "r") as f:
-        #     ann = yaml.safe_load(f)
-      
-        # joints = np.array(ann["keypoints"], dtype=np.float32)
-       
-        # vis = np.array(ann["visibility"], dtype=np.float32).reshape(self.num_joints, 1)
         sample = self.samples[idx]
 
         img = cv2.imread(sample["img_path"])
@@ -112,25 +92,6 @@ class SurgPoseDatasetOneInstance(Dataset):
         vis = sample["visibility"].copy()
         x1, y1, x2, y2 = map(int, sample["bbox"])
 
-
-        ####
-
-        # bw = x2 - x1
-        # bh = y2 - y1
-
-        # use_kp_bbox = False
-
-        # if bw < 10 or bh < 10:
-        #     use_kp_bbox = True
-
-        # if not self.keypoints_inside_bbox(joints, vis, x1, y1, x2, y2):
-        #     use_kp_bbox = True
-
-        # if use_kp_bbox:
-        #     valid = vis[:, 0] > 0
-        #     if valid.sum() >= 2:
-        #         x1, y1, x2, y2 = self.bbox_from_keypoints(joints[valid], W, H, 1)
-        
         # pad bounding box to avoid loosing keypoints
         
         scale=1.1
@@ -162,9 +123,6 @@ class SurgPoseDatasetOneInstance(Dataset):
        
         joints[:, 0] -= x1
         joints[:, 1] -= y1
-        #print(joints)
-        
-        #print(vis)
        
         #apply transformations
         if self.augmentation is not None:
@@ -172,7 +130,7 @@ class SurgPoseDatasetOneInstance(Dataset):
             aug = self.augmentation(image=np.array(img), keypoints=joints)
             img = aug['image']
             joints = np.array(aug['keypoints'], dtype=np.float32)
-            #img= torch.from_numpy(img)
+        
    
         else:
             h0, w0 = img.size[1], img.size[0]
@@ -211,7 +169,6 @@ class SurgPoseDatasetOneInstance(Dataset):
         target_weight = np.ones((num_joints, 1), dtype=np.float32)
         target_weight[:] = joints_vis
         target = np.zeros((num_joints, self.heatmap_h, self.heatmap_w), dtype=np.float32)
-        #target = np.zeros((num_joints, self.heatmap_w, self.heatmap_h), dtype=np.float32), probably this is more correct
 
         tmp_size = self.sigma * 3
         for joint_id in range(num_joints):
