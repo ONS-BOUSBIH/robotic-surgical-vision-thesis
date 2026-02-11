@@ -1,26 +1,17 @@
 import sys
 from pathlib import Path
+
+# Add project root to sys.path to allow imports from the 'src' directory 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-
-from hrnet_config import cfg , update_config
 from types import SimpleNamespace
-from src.surgpose_dataset import SurgPoseDataset
-from src.surgpose_dataset_one_instance import SurgPoseDatasetOneInstance
-from core.loss import JointsMSELoss
-#from src.finetuning_utils import WeightedJointsMSELoss
-from src.dataset_preprocessing import video_level_split
-from src.utils import setup_logger, get_device, load_pretrained_HRNet
 import os
 import torch
-import numpy as np
 import yaml
-import torch.nn as nn
 import torch.optim as optim
 import argparse
-#from torchvision import transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from datetime import datetime
@@ -28,6 +19,14 @@ import csv
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
+# Work-directory-specific imports
+from src.surgpose_dataset import SurgPoseDataset, SurgPoseDatasetOneInstance
+from src.dataset_preprocessing import video_level_split
+from src.utils import setup_logger, get_device, load_pretrained_HRNet
+
+# Hrnet-package-specific imports
+from hrnet_config import cfg , update_config
+from core.loss import JointsMSELoss
 
 
 def train(model, dataloader, optimizer, criterion, device):
@@ -65,12 +64,12 @@ def validate(model,dataloader,criterion, device):
 def main():
     parser = argparse.ArgumentParser(description='Train HRNet for Surgical Keypoints')
     parser.add_argument('--cfg_path', help='experiment config path', required=True, type=str)
-    # Add toggle for the "One Instance" (Cropped/YOLO) dataset
-    parser.add_argument('--one_instance', action='store_true', help='Use the cropped one-instance dataset')
+    # # Add toggle for the "One Instance" (Cropped/YOLO) dataset
+    # parser.add_argument('--one_instance', action='store_true', help='Use the cropped one-instance dataset')
     arguments = parser.parse_args()
 
+    # read amd import the config file
     cfg_file = arguments.cfg_path
-
     args = SimpleNamespace(
         cfg=cfg_file,
         opts=[],
@@ -80,59 +79,55 @@ def main():
         prevModelDir=''
     )
     update_config(cfg, args)
-
-    #model_weights='/srv/homes/onbo10/thesis_Ons/HRNet-Human-Pose-Estimation/pose_hrnet_w32_256x192.pth'  
-    #main_dir='/srv/homes/onbo10/thesis_Ons/HRNet-experiments/HRNet_finetuned/Experiment4'
     
-    ##### Additions to the config files ######
     model_weights= cfg.MODEL.ORIGINAL_PAPER_WEIGHTS
     main_dir= cfg.SAVE.EXPERIMENT_DIR
     one_instance = cfg.MODEL.ONE_INSTANCE
-
+    
+    # Get time stamp, initiate checkpoint's file path and create log file
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     ckpt_dir= os.path.join(main_dir,f'training_checkpoints{timestamp}')
     log_dir = os.path.join(main_dir, 'logs')
     logger = setup_logger(log_dir,log_name=f'finetuning_{timestamp}')
     logger.info("Starting HRNet fine-tuning...")
     
+    # Setup loss file paths and create the file
     loss_file = os.path.join(log_dir, f"losses_per_epoch_{timestamp}.csv")
-    train_transforms= None
-    # Create CSV and write header if it doesn't exist
+        # Create CSV and write header if it doesn't exist
     if not os.path.exists(loss_file):
         with open(loss_file, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(["epoch", "train_loss", "val_loss"])
 
-
-    
+    # Get training hyperparameters and info
     batch_size = cfg.TRAINING.BATCH_SIZE
     num_epochs= cfg.TRAINING.NUM_EPOCHS
     state = cfg.TRAINING.ALREADY_FINETUNED
     lr = cfg.TRAINING.LR
     save_int= cfg.TRAINING.SAVE_INT
-   
+    
+    # Load the pretrained HRNet model 
     model = load_pretrained_HRNet(cfg, model_weights, finetuned=state)
     joints = cfg.MODEL.NUM_JOINTS
     device = get_device()
     model = model.to(device)
- 
+    
+    # Log teh model info
     model_name = os.path.splitext(os.path.basename(model_weights))[0]
     logger.info(f"Finetuning model: {model_name} with {joints} heatmaps")
     logger.info(f'Model initial state: already finetuned = {state}')
     logger.info(f"Using device: {device}")
    
 
-    
+    # Get input dataset information and log it
     in_height, in_width= cfg.MODEL.IMAGE_SIZE[0],cfg.MODEL.IMAGE_SIZE[1]
     H_h, W_h= cfg.MODEL.HEATMAP_SIZE[0],cfg.MODEL.HEATMAP_SIZE[1]
     sigma=cfg.MODEL.SIGMA
     logger.info(f'input_size: H={in_height}, W={in_width}')
 
-   # data_root= '/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right'#'/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted' 
+    # get the image data path and the suitable annotation data path
     data_root= cfg.DATA.ROOT
     frames_dir= os.path.join(data_root,'extracted_frames')
-    
-    
     if one_instance:
         annotations_dir= os.path.join(data_root,'extracted_bboxes_kpts')
     else:
@@ -140,7 +135,7 @@ def main():
     
     output_split_file= os.path.join(data_root,'video_split.yaml')
     
-    #### Generate a video level split and load datasets
+    # Generate a video level split (fixed seed 42 accross all trainings)
     video_level_split(frames_dir, output_split_file,train=0.7,val=0.15,seed=42)
     
     with open(output_split_file, "r") as f:
@@ -149,7 +144,7 @@ def main():
    
     val_video_list =splits['val']
 
-    #Define data augmentation transforms
+    # Define data augmentation transforms if augmentation is included in this training
     if cfg.TRAINING.AUGMENTATION:
         train_transforms = A.Compose([
         A.HorizontalFlip(p=0.5),
@@ -166,7 +161,7 @@ def main():
     else:
         train_transforms= None
     
-    # Logging the transforms 
+    # Log the transforms 
     if train_transforms:
         logger.info(' Data augmentation transforms: ')
         for t in train_transforms.transforms:
@@ -179,18 +174,19 @@ def main():
                 logger.info(f"{t.__class__.__name__}: {t.get_params()}, p={t.p}")
     else:
         logger.info('No data augmentation')
-
+    
+    # Create the suitable dataset instance
     if  one_instance:
         train_dataset = SurgPoseDatasetOneInstance(frames_dir,annotations_dir, input_size=(in_width,in_height), heatmap_size=(W_h,H_h),transform=train_transforms,sigma=sigma, num_joints=joints,video_list=train_video_list)
         val_dataset = SurgPoseDatasetOneInstance(frames_dir,annotations_dir,input_size=(in_width,in_height), heatmap_size=(W_h,H_h), sigma=sigma,num_joints=joints, video_list=val_video_list)
     else:
         train_dataset = SurgPoseDataset(frames_dir,annotations_dir,video_list=train_video_list, input_size=(in_width,in_height), heatmap_size=(W_h,H_h),transform=train_transforms,sigma=sigma)
         val_dataset = SurgPoseDataset(frames_dir,annotations_dir,video_list=val_video_list,input_size=(in_width,in_height), heatmap_size=(W_h,H_h), sigma=sigma)
-    
+    # Create dataloaders
     train_loader= DataLoader(train_dataset, batch_size= batch_size,shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    
+    # Define loss and optimizer and log the info
     criterion = JointsMSELoss(use_target_weight=False) 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
@@ -201,10 +197,12 @@ def main():
     params = {k: v for k, v in criterion.__dict__.items() if not k.startswith('_')}
     logger.info(f"Loss: {loss_name}, parameters: {params}")
 
-
+    # Training and validation loop
+    
     best_val_loss = float('inf')
 
     for epoch in tqdm(range(1,num_epochs+1), desc='Training epochs', unit='epoch'):
+        
         train_loss= train(model,train_loader,optimizer,criterion,device)
         val_loss = validate(model,val_loader,criterion, device)
         logger.info(f"Epoch [{epoch}/{num_epochs}] - Train Loss: {train_loss} | Val Loss: {val_loss}")
