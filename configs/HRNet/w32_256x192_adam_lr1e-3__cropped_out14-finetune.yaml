@@ -1,7 +1,9 @@
 MODEL:
+  ORIGINAL_PAPER_WEIGHTS: 'weights/original_weights/HRNet/pose_hrnet_w32_256x192.pth'
+  ONE_INSTANCE: true
   INIT_WEIGHTS: true
   NAME: pose_hrnet
-  NUM_JOINTS: 7
+  NUM_JOINTS: 14
   PRETRAINED: 'models/pytorch/imagenet/hrnet_w32-36af842e.pth'
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
@@ -66,3 +68,14 @@ MODEL:
       FUSE_METHOD: SUM
 LOSS:
   USE_TARGET_WEIGHT: true
+TRAINING:
+  BATCH_SIZE: 32
+  NUM_EPOCHS: 200
+  ALREADY_FINETUNED: false
+  LR: 1e-3
+  SAVE_INT: 100
+  AUGMENTATION: false
+SAVE:
+  EXPERIMENT_DIR: 'results/Keypoints_detection/training_results/HRNet_trainings/Experiment4'
+DATA:
+  ROOT: 'data/SurgPose/SurgPose_for_HRNet/Extracted_left_right'

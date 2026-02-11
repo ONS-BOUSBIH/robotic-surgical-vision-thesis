@@ -85,12 +85,12 @@ def main():
     #main_dir='/srv/homes/onbo10/thesis_Ons/HRNet-experiments/HRNet_finetuned/Experiment4'
     
     ##### Additions to the config files ######
-    model_weights= cfg.MODEL.INITIAL_WEIGHTS
+    model_weights= cfg.MODEL.ORIGINAL_PAPER_WEIGHTS
     main_dir= cfg.SAVE.EXPERIMENT_DIR
     one_instance = cfg.MODEL.ONE_INSTANCE
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    ckpt_dir= os.path.join(main_dir,f'training_chekpoints{timestamp}')
+    ckpt_dir= os.path.join(main_dir,f'training_checkpoints{timestamp}')
     log_dir = os.path.join(main_dir, 'logs')
     logger = setup_logger(log_dir,log_name=f'finetuning_{timestamp}')
     logger.info("Starting HRNet fine-tuning...")
@@ -104,12 +104,7 @@ def main():
             writer.writerow(["epoch", "train_loss", "val_loss"])
 
 
-    # batch_size = 32
-    # num_epochs= 200 
-    # state = False
-    # LR= 1e-3
-    # save_int= 10
-
+    
     batch_size = cfg.TRAINING.BATCH_SIZE
     num_epochs= cfg.TRAINING.NUM_EPOCHS
     state = cfg.TRAINING.ALREADY_FINETUNED
