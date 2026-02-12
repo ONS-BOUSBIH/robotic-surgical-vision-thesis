@@ -1,0 +1,18 @@
+# Model and Task
+model: yolov8n.pt
+task: detect
+
+# Data (Path to the .yaml describing the dataset)
+data: data/SurgPose/SurgPose_for_YOLO/yolo_formated_surgpose/data.yaml
+
+# Training Hyperparameters (Keep these same as HRNet)
+epochs: 50
+imgsz: 960
+batch: 16
+workers: 4
+# lr0: 0.001
+# optimizer: Adam
+
+# Logging
+project: results/training_results/YOLO_trainings
+name: YOLO_Object_Experiment1
