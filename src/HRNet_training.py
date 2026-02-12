@@ -80,9 +80,9 @@ def main():
     )
     update_config(cfg, args)
     
-    model_weights= cfg.MODEL.ORIGINAL_PAPER_WEIGHTS
-    main_dir= cfg.SAVE.EXPERIMENT_DIR
-    one_instance = cfg.MODEL.ONE_INSTANCE
+    model_weights= cfg.MODEL.EXTRA.ORIGINAL_PAPER_WEIGHTS
+    main_dir= cfg.MODEL.EXTRA.SAVE.EXPERIMENT_DIR
+    one_instance = cfg.MODEL.EXTRA.ONE_INSTANCE
     
     # Get time stamp, initiate checkpoint's file path and create log file
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -100,11 +100,11 @@ def main():
             writer.writerow(["epoch", "train_loss", "val_loss"])
 
     # Get training hyperparameters and info
-    batch_size = cfg.TRAINING.BATCH_SIZE
-    num_epochs= cfg.TRAINING.NUM_EPOCHS
-    state = cfg.TRAINING.ALREADY_FINETUNED
-    lr = cfg.TRAINING.LR
-    save_int= cfg.TRAINING.SAVE_INT
+    batch_size = cfg.MODEL.EXTRA.TRAINING.BATCH_SIZE
+    num_epochs= cfg.MODEL.EXTRA.TRAINING.NUM_EPOCHS
+    state = cfg.MODEL.EXTRA.TRAINING.ALREADY_FINETUNED
+    lr = float(cfg.MODEL.EXTRA.TRAINING.LR)
+    save_int= cfg.MODEL.EXTRA.TRAINING.SAVE_INT
     
     # Load the pretrained HRNet model 
     model = load_pretrained_HRNet(cfg, model_weights, finetuned=state)
@@ -126,18 +126,15 @@ def main():
     logger.info(f'input_size: H={in_height}, W={in_width}')
 
     # get the image data path and the suitable annotation data path
-    data_root= cfg.DATA.ROOT
+    data_root= cfg.MODEL.EXTRA.DATA.ROOT
     frames_dir= os.path.join(data_root,'extracted_frames')
     if one_instance:
         annotations_dir= os.path.join(data_root,'extracted_bboxes_kpts')
     else:
         annotations_dir= os.path.join(data_root,'extracted_keypoints')
     
+    # Load the video level split file and get video IDs for each category
     output_split_file= os.path.join(data_root,'video_split.yaml')
-    
-    # Generate a video level split (fixed seed 42 accross all trainings)
-    video_level_split(frames_dir, output_split_file,train=0.7,val=0.15,seed=42)
-    
     with open(output_split_file, "r") as f:
         splits = yaml.safe_load(f)
     train_video_list = splits['train']
@@ -145,7 +142,7 @@ def main():
     val_video_list =splits['val']
 
     # Define data augmentation transforms if augmentation is included in this training
-    if cfg.TRAINING.AUGMENTATION:
+    if cfg.MODEL.EXTRA.TRAINING.AUGMENTATION:
         train_transforms = A.Compose([
         A.HorizontalFlip(p=0.5),
         A.Rotate(limit=20, p=0.5),

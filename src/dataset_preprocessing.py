@@ -429,3 +429,7 @@ if __name__=='__main__':
     #extract_corresponding_frames(video_split_path, new_frames_path, old_frames_paths,data_root)
     ####
     extract_frames_alternated()
+    
+    # Generate a video level split (fixed seed 42 accross all trainings)
+    #output_split_file='/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet/Extracted_left_right/video_split.yaml'
+    #video_level_split(frames_dir, output_split_file,train=0.7,val=0.15,seed=42)

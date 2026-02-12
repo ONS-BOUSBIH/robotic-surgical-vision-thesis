@@ -69,15 +69,15 @@ MODEL:
     ONE_INSTANCE: false
     TRAINING:
       BATCH_SIZE: 32
-      NUM_EPOCHS:  2 #200
+      NUM_EPOCHS:  200
       ALREADY_FINETUNED: false
       LR: 1e-3
-      SAVE_INT: 2 #50
+      SAVE_INT: 100
       AUGMENTATION: true
-      SAVE:
-       EXPERIMENT_DIR: 'results/Keypoints_detection/training_results/HRNet_trainings/Experiment2'
-      DATA:
-        ROOT: 'data/SurgPose/SurgPose_for_HRNet/Extracted_left_right'
+    SAVE:
+      EXPERIMENT_DIR: 'results/Keypoints_detection/training_results/HRNet_trainings/Experiment2'
+    DATA:
+      ROOT: 'data/SurgPose/SurgPose_for_HRNet/Extracted_left_right'
 
 LOSS:
   USE_TARGET_WEIGHT: true
