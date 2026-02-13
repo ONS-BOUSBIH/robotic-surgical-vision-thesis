@@ -9,8 +9,8 @@ _base_ = [
 
 #  OVERRIDE GLOBAL SETTINGS 
 dataset_metainfo = dict(from_file='configs/_base_/datasets/surg_7kpt.py')
-data_root = '/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
-work_dir = '/srv/homes/onbo10/thesis_Ons/ViTPose/work_dirs/vitpose_base_surg_experiment_1'
+data_root = 'data/SurgPose/SurgPose_for_HRNet/Extracted_left_right/extracted_frames' #'/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
+work_dir = 'results/Keypoints_detection/training_results/ViTpose_trainings' # '/srv/homes/onbo10/thesis_Ons/ViTPose/work_dirs/vitpose_base_surg_experiment_1'
 
 #  MODEL OVERRIDES 
 model = dict(
@@ -26,7 +26,7 @@ train_dataloader = dict(
     dataset=dict(
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/train.json',
+        ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/train.json', #'/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/train.json',
         data_prefix=dict(img=''),
     )
 )
@@ -43,7 +43,7 @@ val_dataloader = dict(
         type='CocoDataset',
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/val.json',
+        ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/val.json',
         data_prefix=dict(img=''),
         test_mode=True,
         pipeline=val_pipeline,
@@ -59,7 +59,7 @@ test_dataloader = dict(
         type='CocoDataset',
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/test.json',
+        ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/test.json',
         data_prefix=dict(img=''),
         test_mode=True,
         pipeline=val_pipeline,
@@ -67,8 +67,8 @@ test_dataloader = dict(
 )
 
 #  EVALUATOR OVERRIDES 
-val_evaluator = dict(ann_file='/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/val.json')
-test_evaluator = dict(ann_file='/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/test.json')
+val_evaluator = dict(ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/val.json')
+test_evaluator = dict(ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/test.json')
 
 train_cfg = dict(
     _delete_=True,
