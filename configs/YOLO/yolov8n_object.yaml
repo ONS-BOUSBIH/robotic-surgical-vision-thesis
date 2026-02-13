@@ -1,11 +1,11 @@
 # Model and Task
-model: yolov8n.pt
+model: weights/original_weights/YOLO/yolov8n.pt
 task: detect
 
 # Data (Path to the .yaml describing the dataset)
 data: data/SurgPose/SurgPose_for_YOLO/yolo_formated_surgpose/data.yaml
 
-# Training Hyperparameters (Keep these same as HRNet)
+# Training Hyperparameters 
 epochs: 50
 imgsz: 960
 batch: 16
@@ -14,5 +14,5 @@ workers: 4
 # optimizer: Adam
 
 # Logging
-project: results/training_results/YOLO_trainings
+project: results/Keypoints_detection/training_results/YOLO_trainings
 name: YOLO_Object_Experiment1

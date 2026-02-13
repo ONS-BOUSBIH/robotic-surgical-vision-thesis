@@ -5,13 +5,14 @@ task: pose
 # Data (Path to the .yaml describing the dataset)
 data: data/SurgPose/SurgPose_for_YOLO/yolo_formated_surgpose_kpts/surgpose_pose.yaml
 
-# Training Hyperparameters
+# Training Hyperparameters 
 epochs: 50
 imgsz: 640
 batch: 16
 workers: 4
-
+lr0: 0.001
+optimizer: Adam
 
 # Logging
 project: results/Keypoints_detection/training_results/YOLO_trainings
-name: YOLO_Pose_Experiment1
+name: YOLO_Pose_Experiment2

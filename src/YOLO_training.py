@@ -28,30 +28,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-
-# model = YOLO("yolov8n.pt")
-# data_doc='/srv/homes/onbo10/thesis_Ons/HRNet_YOLO/yolo_formated_surgpose/data.yaml'
-# results = model.train(
-#     data=data_doc,
-#     epochs=50,
-#     imgsz=960,
-#     batch=16,
-#     device=2,     
-#     workers=4,
-#     project="runs_yolo",
-#     name="surgpose_exp1"
-# )
-
-# model = YOLO("yolov8x-pose.pt")
-
-# data_yaml= '/srv/homes/onbo10/thesis_Ons/HRNet_YOLO/yolo_formated_surgpose_kpts/surgpose_pose.yaml'
-# model.train(
-#     data=data_yaml,
-#     epochs=50,
-#     imgsz=640,         
-#     batch=16,
-#     device=1,         
-#     workers=4,
-#     cache=True,
-#     name="yolov8pose_surgpose"
-# )
