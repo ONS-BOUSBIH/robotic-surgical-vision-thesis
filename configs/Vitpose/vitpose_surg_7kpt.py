@@ -6,7 +6,7 @@ custom_imports = dict(
 # _base_ = [
 #     '../coco/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192.py' 
 # ]
-_base_ =['./bases/vitpose_originals/td-hm_ViTPose-base_8xb64-210e_coco-256x192.py']
+_base_ =['./bases/vitpose_originals/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192.py']
 
 #  OVERRIDE GLOBAL SETTINGS 
 dataset_metainfo = dict(from_file='configs/_base_/datasets/surg_7kpt.py')#'configs/_base_/datasets/surg_7kpt.py')
