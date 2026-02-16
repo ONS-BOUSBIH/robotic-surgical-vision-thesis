@@ -1,0 +1,1 @@
+# a wrapper that would unify the output of inference of each model or pipeline
