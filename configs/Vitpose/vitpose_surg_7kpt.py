@@ -3,14 +3,15 @@ custom_imports = dict(
     imports=['mmpretrain.models'], # This registers the ViT backbone
     allow_failed_imports=False)
 # Inherit from the official ViTPose-Base config
-_base_ = [
-    '../coco/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192.py' 
-]
+# _base_ = [
+#     '../coco/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192.py' 
+# ]
+_base_ =['./bases/vitpose_originals/td-hm_ViTPose-base_8xb64-210e_coco-256x192.py']
 
 #  OVERRIDE GLOBAL SETTINGS 
-dataset_metainfo = dict(from_file='configs/_base_/datasets/surg_7kpt.py')
-data_root = 'data/SurgPose/SurgPose_for_HRNet/Extracted_left_right/extracted_frames' #'/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
-work_dir = 'results/Keypoints_detection/training_results/ViTpose_trainings' # '/srv/homes/onbo10/thesis_Ons/ViTPose/work_dirs/vitpose_base_surg_experiment_1'
+dataset_metainfo = dict(from_file='configs/_base_/datasets/surg_7kpt.py')#'configs/_base_/datasets/surg_7kpt.py')
+data_root = 'data/SurgPose'#/SurgPose_for_HRNet/Extracted_left_right/extracted_frames' #'/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
+work_dir = 'results/Keypoints_detection/training_results/ViTpose_trainings/Experiment1' # '/srv/homes/onbo10/thesis_Ons/ViTPose/work_dirs/vitpose_base_surg_experiment_1'
 
 #  MODEL OVERRIDES 
 model = dict(
@@ -26,8 +27,8 @@ train_dataloader = dict(
     dataset=dict(
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/train.json', #'/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/train.json',
-        data_prefix=dict(img=''),
+        ann_file='SurgPose_for_Vitpose/annotations/train.json', #'/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/train.json',
+        data_prefix=dict(img='SurgPose_for_HRNet/Extracted_left_right/extracted_frames/'),
     )
 )
 val_pipeline = [
@@ -43,8 +44,8 @@ val_dataloader = dict(
         type='CocoDataset',
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/val.json',
-        data_prefix=dict(img=''),
+        ann_file='SurgPose_for_Vitpose/annotations/val.json',
+        data_prefix=dict(img='SurgPose_for_HRNet/Extracted_left_right/extracted_frames/'),
         test_mode=True,
         pipeline=val_pipeline,
     )
@@ -59,8 +60,8 @@ test_dataloader = dict(
         type='CocoDataset',
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='data/SurgPose/SurgPose_for_Vitpose/annotations/test.json',
-        data_prefix=dict(img=''),
+        ann_file='SurgPose_for_Vitpose/annotations/test.json',
+        data_prefix=dict(img='SurgPose_for_HRNet/Extracted_left_right/extracted_frames/'),
         test_mode=True,
         pipeline=val_pipeline,
     )
@@ -105,4 +106,5 @@ default_hooks = dict(
 
 
 #   PRETRAINED WEIGHTS 
-load_from = 'https://download.openmmlab.com/mmpose/v1/body_2d_keypoint/topdown_heatmap/coco/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192-0b8234ea_20230407.pth'
+#load_from = 'https://download.openmmlab.com/mmpose/v1/body_2d_keypoint/topdown_heatmap/coco/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192-0b8234ea_20230407.pth'
+load_from ='weights/original_weights/ViTpose/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192-0b8234ea_20230407.pth'
