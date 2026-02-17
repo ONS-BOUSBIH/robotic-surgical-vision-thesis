@@ -71,7 +71,7 @@ MODEL:
       BATCH_SIZE: 32
       NUM_EPOCHS:  200
       ALREADY_FINETUNED: false
-      LR: 1e-3
+      LR: 0.001
       SAVE_INT: 100
       AUGMENTATION: true
     SAVE:

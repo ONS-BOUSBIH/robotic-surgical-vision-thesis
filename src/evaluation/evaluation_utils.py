@@ -1,7 +1,7 @@
 
 import torch
 from torch.utils.data import DataLoader
-from evaluation_dataset import SurgPoseDatasetOneInstanceInference
+# from eval_datasets import SurgPoseDatasetOneInstanceInference
 import numpy as np
 from ultralytics.utils.metrics import kpt_iou
 from ultralytics.utils.ops import xyxy2xywh
@@ -57,11 +57,11 @@ def evaluate_cropped_HRNET(model, test_loader,device ,SIGMAS, IOU_THRESHOLDS, w_
     model.eval()
     with torch.no_grad():
         for batch in test_loader:
-            images, targets, targets_w,gt_kpts, gt_bboxes,crops, gt_cls = batch
-            images =images.to(device)
-            gt_kpts = gt_kpts.to(device)    # [B, 7, 3]
-            gt_bboxes = gt_bboxes.to(device)  # [B, 4]
-            crops = crops.to(device)    # [B, 4]
+            #images, targets, targets_w,gt_kpts, gt_bboxes,crops, gt_cls = batch
+            images =batch['img'].to(device)
+            gt_kpts = batch['gt_kpts'].to(device)    # [B, 7, 3]
+            gt_bboxes = batch['gt_bbox'].to(device)  # [B, 4]
+            crops = batch['crop_coords'].to(device)    # [B, 4]
             
             outputs = model(images) 
             

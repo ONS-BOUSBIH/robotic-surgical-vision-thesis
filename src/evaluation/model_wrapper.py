@@ -74,6 +74,7 @@ class UnifiedSurgicalPipeline:
 
     def predict(self, img_info):
         assert (self.eval_setup.lower() == 'top_down' and not(self.det_model== None)) , "ERROR: top_down pipeline needs a detection model definition"
+        assert (self.eval_setup.lower() == 'top_down' and not(self.pose_model.lower()== 'yolo')) , "ERROR: yolo pose is not part of a top_down pipeline, change the pose model"
         if self.eval_setup.lower() == 'top_down':
             return self._predict_top_down(img_info)
         if self.eval_setup.lower() == 'kpt_only':
@@ -102,7 +103,7 @@ class UnifiedSurgicalPipeline:
                 results.append(np.concatenate([kpts, confs[:, None]], axis=1))
             return results
         else:
-            # HRNet with your 1.1x manual crop scaling
+            # HRNet cropped
             results = []
             for box in bboxes:
                 results.append(self._process_hrnet_crop(img, box))
