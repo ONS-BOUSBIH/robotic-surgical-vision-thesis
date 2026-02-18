@@ -148,70 +148,34 @@ class YoloPoseEvaluationDataset(Dataset):
         self.img_size = img_size
         self.img_files = sorted([f for f in os.listdir(img_dir) if f.endswith(('.jpg', '.png'))])
 
-    def is_valid_sample(self, bw, bh, kpts, bbox_xyxy):
-        """
-        Matching the logic from HRNetEvaluationDataset exactly.
-        1. Bbox size check
-        2. Bbox area check
-        3. Visibility constraint: Keypoints must be inside the bbox if visible
-        """
-        # 1 & 2. Size and Area check
-        if bw < 20 or bh < 20 or (bw * bh) < 400:
-            return False
-            
-        # 3. Visibility constraint
-        # kpts is [7, 3] -> (x, y, visibility)
-        # bbox_xyxy is [x1, y1, x2, y2]
-        x1, y1, x2, y2 = bbox_xyxy
-        for kp in kpts:
-            kx, ky, kv = kp
-            if kv > 0: # If keypoint is labeled as visible or labeled but occluded
-                if not (x1 <= kx <= x2 and y1 <= ky <= y2):
-                    return False
-        
-        return True
-
     def __len__(self):
         return len(self.img_files)
 
     def __getitem__(self, idx):
+        # 1. Load Image
         img_path = os.path.join(self.img_dir, self.img_files[idx])
         img = cv2.imread(img_path)
         h0, w0 = img.shape[:2]
 
+        # 2. Load Labels (.txt file)
         label_path = os.path.join(self.label_dir, self.img_files[idx].rsplit('.', 1)[0] + '.txt')
-        
-        valid_gt_instances = []
+        gt_instances = []
         if os.path.exists(label_path):
             with open(label_path, 'r') as f:
                 for line in f.readlines():
                     data = np.fromstring(line, sep=' ')
-                    # YOLO normalized values
-                    bw_px = data[3] * w0
-                    bh_px = data[4] * h0
-                    
-                    # Temporary conversion to XYXY for the visibility check
-                    cx, cy = data[1] * w0, data[2] * h0
-                    x1, y1 = cx - bw_px / 2, cy - bh_px / 2
-                    x2, y2 = cx + bw_px / 2, cy + bh_px / 2
-                    
-                    # Extract keypoints and scale to pixels for the check
-                    kpts = data[5:].reshape(-1, 3)
-                    kpts_px = kpts.copy()
-                    kpts_px[:, 0] *= w0
-                    kpts_px[:, 1] *= h0
-                    
-                    # APPLY FILTER WITH VISIBILITY CONSTRAINT
-                    if self.is_valid_sample(bw_px, bh_px, kpts_px, [x1, y1, x2, y2]):
-                        valid_gt_instances.append(data)
+                    # data format: [class, x_c, y_c, w, h, k1_x, k1_y, k1_v, ...]
+                    gt_instances.append(data)
         
-        gt_instances = np.array(valid_gt_instances) if len(valid_gt_instances) > 0 else np.zeros((0, 5 + 7*3))
+        gt_instances = np.array(gt_instances) if len(gt_instances) > 0 else np.zeros((0, 5 + 7*3))
 
-        # Final coordinate processing for return
+        # 3. Rescale coordinates from normalized (0-1) to original pixels
+        # We evaluate in pixels to be precise
         gt_bboxes = gt_instances[:, 1:5].copy()
-        gt_bboxes[:, [0, 2]] *= w0  # cx, w
-        gt_bboxes[:, [1, 3]] *= h0  # cy, h
+        gt_bboxes[:, [0, 2]] *= w0  # x_center, width
+        gt_bboxes[:, [1, 3]] *= h0  # y_center, height
         
+        # Convert [cx, cy, w, h] to [x1, y1, x2, y2]
         bboxes_xyxy = np.zeros_like(gt_bboxes)
         bboxes_xyxy[:, 0] = gt_bboxes[:, 0] - gt_bboxes[:, 2] / 2
         bboxes_xyxy[:, 1] = gt_bboxes[:, 1] - gt_bboxes[:, 3] / 2
@@ -222,13 +186,14 @@ class YoloPoseEvaluationDataset(Dataset):
         gt_kpts[:, :, 0] *= w0
         gt_kpts[:, :, 1] *= h0
 
+        # 4. Prepare for YOLO inference
+        # Resize image for the model but keep original for coordinate matching
         img_resized = cv2.resize(img, self.img_size)
-        img_tensor = torch.from_numpy(img_resized).permute(2, 0, 1).float()
+        img_tensor = torch.from_numpy(img_resized).permute(2, 0, 1).float() # [3, H, W]
 
-        return { 
-            "img_path": img_path,
-            "img": img_tensor,
-            "orig_img": img,
+        return { "img_path": img_path,
+            "img": img_tensor,           # To be fed to YOLO
+            "orig_img": img,             # For visualization if needed
             "gt_kpts": torch.as_tensor(gt_kpts),
             "gt_bboxes": torch.as_tensor(bboxes_xyxy),
             "h_w_orig": (h0, w0)

@@ -9,9 +9,9 @@ custom_imports = dict(
 _base_ =['./bases/vitpose_originals/td-hm_ViTPose-base-simple_8xb64-210e_coco-256x192.py']
 
 #  OVERRIDE GLOBAL SETTINGS 
-dataset_metainfo = dict(from_file='configs/_base_/datasets/surg_7kpt.py')#'configs/_base_/datasets/surg_7kpt.py')
-data_root = 'data/SurgPose'#/SurgPose_for_HRNet/Extracted_left_right/extracted_frames' #'/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
-work_dir = 'results/Keypoints_detection/training_results/ViTpose_trainings/Experiment1' # '/srv/homes/onbo10/thesis_Ons/ViTPose/work_dirs/vitpose_base_surg_experiment_1'
+dataset_metainfo = dict(from_file='configs/_base_/datasets/surg_7kpt.py')
+data_root = 'data/SurgPose'
+work_dir = 'results/Keypoints_detection/training_results/ViTpose_trainings/Experiment1' 
 
 #  MODEL OVERRIDES 
 model = dict(
@@ -27,7 +27,7 @@ train_dataloader = dict(
     dataset=dict(
         metainfo=dataset_metainfo,
         data_root=data_root,
-        ann_file='SurgPose_for_Vitpose/annotations/train.json', #'/srv/homes/onbo10/thesis_Ons/ViTPose/mmpose_data/data/annotations/train.json',
+        ann_file='SurgPose_for_Vitpose/annotations/train.json', 
         data_prefix=dict(img='SurgPose_for_HRNet/Extracted_left_right/extracted_frames/'),
     )
 )
@@ -98,7 +98,7 @@ default_hooks = dict(
         type='CheckpointHook',
         interval=50,            # Save a checkpoint every 50 epochs
         max_keep_ckpts=3,       # Keep only the last 3 to save disk space
-        save_best='coco/AP',    # AUTOMATICALLY save the best performing model
+        save_best='coco/AP',    # save the best performing model
         rule='greater'
     ),
     logger=dict(type='LoggerHook', interval=50) # Print logs every 50 iterations

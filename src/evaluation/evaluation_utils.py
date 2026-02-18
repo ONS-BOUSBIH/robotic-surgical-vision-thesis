@@ -51,7 +51,7 @@ def process_batch(pred_kpts, gt_kpts, gt_areas, sigmas, confidences, iou_thresho
             
     return correct_matrix
 
-def evaluate_cropped_HRNET(model, test_loader,device ,SIGMAS, IOU_THRESHOLDS, w_m=64.0, h_m=48.0):
+def evaluate_HRNET_cropped(model, test_loader,device ,SIGMAS, IOU_THRESHOLDS, w_m=64.0, h_m=48.0):
     
     stats = []
     model.eval()
@@ -231,7 +231,7 @@ def evaluate_HRNet_full_image(model, dataloader, device,SIGMAS, IOU_THRESHOLDS, 
     total_valid_instances = 0
 
     for batch in dataloader:
-        img_path = batch["meta"]["img_path"][0] 
+        img_path = batch["img_path"][0] 
         img_name = os.path.basename(img_path)
         m = re.search(r'vid_(\d+)', img_name)
         if m is None: continue
@@ -245,7 +245,7 @@ def evaluate_HRNet_full_image(model, dataloader, device,SIGMAS, IOU_THRESHOLDS, 
         preds, maxvals = get_max_preds(output_heatmaps)
 
         # Scale and Group into 2 Instances
-        h0, w0 = batch["meta"]["h_w_orig"][0]
+        h0, w0 = batch["h_w_orig"][0]
         h_hm, w_hm = output_heatmaps.shape[2], output_heatmaps.shape[3]
         
         # Scale heatmap coords to original resolution
@@ -318,20 +318,17 @@ def evaluate_HRNet_full_image(model, dataloader, device,SIGMAS, IOU_THRESHOLDS, 
 
     return len(yolo_stats_hrnet_full), p.mean(),r.mean(), map50, map50_95 , total_valid_instances
 
+
 def evaluate_ViTPose_custom(model, test_loader, device, SIGMAS, IOU_THRESHOLDS):
     stats = []
     model.eval()
-    
-    # Note: ViTPose (MMPose 1.x) uses a data_preprocessor to handle normalization
-    # Ensure your test_loader is yielding data compatible with MMPose PackPoseInputs
-    
     with torch.no_grad():
         for batch in test_loader:
-            # 1. Move data to device using the model's preprocessor
+            # Move data to device using the model's preprocessor
             # This handles normalization (mean/std) automatically
             data = model.data_preprocessor(batch, False)
             
-            # 2. Run Inference
+            # Run Inference
             # Returns a list of PoseDataSample objects
             results = model.predict(**data)
             
@@ -348,7 +345,7 @@ def evaluate_ViTPose_custom(model, test_loader, device, SIGMAS, IOU_THRESHOLDS):
                     torch.from_numpy(pk_scores).unsqueeze(-1)
                 ], dim=1).to(device)
                 
-                # 3. Get Ground Truth from the result object
+                # Get Ground Truth from the result object
                 # MMPose stores GT in the same data sample
                 gt_instances = result.gt_instances
                 gk = torch.from_numpy(gt_instances.keypoints[0]).to(device) # [K, 2]
@@ -357,15 +354,16 @@ def evaluate_ViTPose_custom(model, test_loader, device, SIGMAS, IOU_THRESHOLDS):
                 # Format GT as [K, 3] (x, y, visibility)
                 gk_formatted = torch.cat([gk, gv.unsqueeze(-1)], dim=1)
                 
-                # 4. Area Calculation (using GT Bbox)
-                gt_bboxes = gt_instances.bboxes[0] # [x1, y1, x2, y2]
+                # Area Calculation 
+                gt_bboxes = gt_instances.bboxes[0] 
+                #internally in MMpose the bboxes are comverted to the form [x1,y1,x2,y2]
                 area = (gt_bboxes[2] - gt_bboxes[0]) * (gt_bboxes[3] - gt_bboxes[1])
                 area = torch.tensor([area], device=device)
-
-                # Object Confidence (mean of kpt scores, as per your HRNet code)
+                
+                # Object Confidence, mean of the keypoints scores
                 obj_conf = pk[:, 2].mean().unsqueeze(0)
                 
-                # 5. Your custom Matching Logic
+                # Matching Logic
                 tp_matrix = process_batch(
                     pk.unsqueeze(0), 
                     gk_formatted.unsqueeze(0), 
@@ -377,7 +375,7 @@ def evaluate_ViTPose_custom(model, test_loader, device, SIGMAS, IOU_THRESHOLDS):
                 
                 stats.append((tp_matrix.cpu(), obj_conf.cpu(), torch.zeros(1), torch.zeros(1)))
 
-    # mAP Calculation (Exactly the same as your HRNet code)
+    # mAP Calculation 
     if len(stats) > 0:
         tp, conf, pcls, gcls = [torch.cat(x, 0).numpy() for x in zip(*stats)]
         results = ap_per_class(tp, conf, pcls, gcls, plot=False)
