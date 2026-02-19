@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 # from eval_datasets import SurgPoseDatasetOneInstanceInference
 import numpy as np
 from ultralytics.utils.metrics import kpt_iou
-from ultralytics.utils.ops import xyxy2xywh
 from core.inference import get_max_preds
 import torch
 import numpy as np
@@ -15,6 +14,9 @@ import yaml
 import os
 from tqdm import tqdm
 import cv2
+import os
+import csv
+from datetime import datetime
 
 def process_batch(pred_kpts, gt_kpts, gt_areas, sigmas, confidences, iou_thresholds):
     """
@@ -390,6 +392,7 @@ def evaluate_ViTPose_custom(model, test_loader, device, SIGMAS, IOU_THRESHOLDS):
         return None
 
 def run_test_on_yolo_format(pipeline, test_img_dir, test_label_dir, device='cuda'):
+
     all_stats = []
   
     SIGMAS =  torch.tensor([0.026, 0.025, 0.025, 0.035, 0.035, 0.079, 0.079]).to(device) # first 7 sigma values from the COCO sigmas
@@ -484,3 +487,47 @@ def run_test_on_yolo_format(pipeline, test_img_dir, test_label_dir, device='cuda
         return ap.mean()
     
     return 0
+
+
+def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluation_logs.csv"):
+    """
+    Prints results and appends them to a CSV log with the model weights used.
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Header 
+    header = ["Timestamp", "Model", "Weights_Path", "Images", "Instances", "Precision", "Recall", "mAP50", "mAP50-95"]
+    
+    weights_filename = os.path.basename(weights_path)
+    
+    row = [
+        timestamp,
+        model_name,
+        weights_path, 
+        metrics.get("num_images"),
+        metrics.get("num_valid"),
+        f"{metrics.get('precision', 0):.4f}",
+        f"{metrics.get('recall', 0):.4f}",
+        f"{metrics.get('map50', 0):.4f}",
+        f"{metrics.get('map50_95', 0):.4f}"
+    ]
+
+    # Prints
+    print("\n" + "="*50)
+    print(f"{model_name.upper()} TEST EVALUATION RESULTS")
+    print("-" * 50)
+    print(f"Weights: {weights_filename}") 
+    print("-" * 50)
+    
+    for i in range(3, len(header)):
+        print(f"{header[i]:<15}: {row[i]}")
+    print("="*50)
+
+    # Save
+    file_exists = os.path.isfile(log_path)
+    with open(log_path, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(header)
+        writer.writerow(row)
+    
+    print(f"Log updated: {os.path.abspath(log_path)}")
