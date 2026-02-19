@@ -3,18 +3,22 @@ import cv2
 import numpy as np
 from mmpose.apis import inference_topdown, init_model
 from core.inference import get_max_preds
-from tqdm import tqdm
 
+# Class that construtcts the top down pipline for keypoint detection
 
-class UnifiedSurgicalPipeline:
-    def __init__(self, det_model, pose_model, model_type='vitpose', conf_threshold=0.5, device='cuda'):
+class KeypointDetectionPipeline:
+    def __init__(self, det_model, pose_model, pose_model_type='vitpose', conf_threshold=0.5, device='cuda'):
         """
-        model_type: 'vitpose' or 'hrnet'
+        Class that construtcts the top down pipline for keypoint detection:
+        Yolov8 + Vitpose
+        or 
+        Yolov8 + HRNet
+        pose_model_type: 'vitpose' or 'hrnet'
         conf_threshold: Minimum YOLO confidence to process a tool
         """
         self.det_model = det_model 
         self.pose_model = pose_model
-        self.model_type = model_type
+        self.pose_model_type = pose_model_type
         self.conf_threshold = conf_threshold
         self.device = device
         # Move model to device
@@ -22,24 +26,7 @@ class UnifiedSurgicalPipeline:
     
     def _process_hrnet_crop(self, img, bbox):
         # Add the scaling to match the training setup
-        x1, y1, x2, y2 = bbox
-        w, h = x2 - x1, y2 - y1
-        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-        
-        scale = 1.1
-        new_w, new_h = w * scale, h * scale
-        
-       
-        px1 = int(cx - new_w / 2)
-        py1 = int(cy - new_h / 2)
-        px2 = int(cx + new_w / 2)
-        py2 = int(cy + new_h / 2)
-        
-        # Clip to image bounds 
-        H, W = img.shape[:2]
-        px1, py1 = max(0, px1), max(0, py1)
-        px2, py2 = min(W - 1, px2), min(H - 1, py2)
-        
+        px1, py1, px2, py2 = self.get_crop_hrnet(img, bbox)
         # Crop and convert color
         crop = img[py1:py2, px1:px2].copy()
         if crop.size == 0: return np.zeros((7, 3))
@@ -69,6 +56,26 @@ class UnifiedSurgicalPipeline:
             
         return pred_kpts
 
+    def get_crop_hrnet(self, img, bbox):
+        x1, y1, x2, y2 = bbox
+        w, h = x2 - x1, y2 - y1
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        
+        scale = 1.1
+        new_w, new_h = w * scale, h * scale
+        
+       
+        px1 = int(cx - new_w / 2)
+        py1 = int(cy - new_h / 2)
+        px2 = int(cx + new_w / 2)
+        py2 = int(cy + new_h / 2)
+        
+        # Clip to image bounds 
+        H, W = img.shape[:2]
+        px1, py1 = max(0, px1), max(0, py1)
+        px2, py2 = min(W - 1, px2), min(H - 1, py2)
+        return px1,py1,px2,py2
+
 
     def predict(self, img_path):
         img = cv2.imread(img_path)
@@ -77,12 +84,11 @@ class UnifiedSurgicalPipeline:
         
         # Get bboxes 
         bboxes = det_results.boxes.xyxy.cpu().numpy()
-      
         
         if len(bboxes) == 0:
             return []
 
-        if self.model_type == 'vitpose':
+        if self.pose_model_type == 'vitpose':
             # Prediction using Vitpose 
             return inference_topdown(self.pose_model, img, bboxes=bboxes)
         else:

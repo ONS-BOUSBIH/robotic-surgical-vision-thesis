@@ -220,7 +220,7 @@ def evaluate_YOLO(yolo_model, dataloader, device,SIGMAS_YOLO, IOU_THRESHOLDS, va
 
    
     tp, conf, pcls, gcls = [torch.cat(x, 0).numpy() for x in zip(*yolo_stats)]
-    results_custom = ap_per_class(tp, conf, pcls, gcls)
+    results = ap_per_class(tp, conf, pcls, gcls)
 
     tp_res, fp_res, p, r, f1, ap, unique_classes = results_custom[0], results_custom[1], results_custom[2], results_custom[3], results_custom[4], results_custom[5], results_custom[6]
     map50_95 = ap.mean()
@@ -391,13 +391,9 @@ def evaluate_ViTPose_custom(model, test_loader, device, SIGMAS, IOU_THRESHOLDS):
     else:
         return None
 
-def run_test_on_yolo_format(pipeline, test_img_dir, test_label_dir, device='cuda'):
+def evaluate_topdown_pipeline(pipeline, test_img_dir, test_label_dir, SIGMAS, IOU_THRESHOLDS, device='cuda'):
 
     all_stats = []
-  
-    SIGMAS =  torch.tensor([0.026, 0.025, 0.025, 0.035, 0.035, 0.079, 0.079]).to(device) # first 7 sigma values from the COCO sigmas
-    IOU_THRESHOLDS = torch.linspace(0.5, 0.95, 10).to(device) #COCO standard thresholds
-    
     image_files = [f for f in os.listdir(test_img_dir) if f.endswith(('.jpg', '.png'))]
     
     for img_name in tqdm(image_files):
@@ -414,7 +410,7 @@ def run_test_on_yolo_format(pipeline, test_img_dir, test_label_dir, device='cuda
         # Convert predictions to [M, 7, 3] tensor
         pred_list = []
         for p in results:
-            if pipeline.model_type == 'vitpose':
+            if pipeline.pose_model_type == 'vitpose':
                 p_kpts = torch.from_numpy(p.pred_instances.keypoints[0]) # [7, 2]
                 p_scores = torch.from_numpy(p.pred_instances.keypoint_scores[0]).unsqueeze(-1) # [7, 1]
                 p_final = torch.cat([p_kpts, p_scores], dim=-1) # [7, 3]
@@ -476,39 +472,34 @@ def run_test_on_yolo_format(pipeline, test_img_dir, test_label_dir, device='cuda
     if len(all_stats) > 0:
         tp, conf, pcls, gcls = [torch.cat(x, 0).numpy() for x in zip(*all_stats)]
         results = ap_per_class(tp, conf, pcls, gcls, plot=False)
-        
-        # Results: (tp, fp, p, r, f1, ap, unique_classes)
-        ap = results[5] 
-        print(f"\n--- {pipeline.model_type.upper()} FINAL EVAL ---")
-        print(f"Precision:    {results[2].mean():.4f}")
-        print(f"Recall:       {results[3].mean():.4f}")
-        print(f"mAP@50:    {ap[:, 0].mean():.4f}")
-        print(f"mAP@50-95: {ap.mean():.4f}")
-        return ap.mean()
-    
-    return 0
+        tp_res, fp_res, p, r, f1, ap, unique_classes = results[0],results[1], results[2], results[3], results[4], results[5], results[6]
+        map50_95 = ap.mean()
+        map50 = ap[:, 0].mean() 
+        return len(all_stats), p.mean(),r.mean(), map50, map50_95
+
+    return None
 
 
 def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluation_logs.csv"):
     """
-    Prints results and appends them to a CSV log with the model weights used.
+    Prints results and appends them to a csv log.
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Header 
-    header = ["Timestamp", "Model", "Weights_Path", "Images", "Instances", "Precision", "Recall", "mAP50", "mAP50-95"]
+    header = ["Timestamp", "Model", "Images", "Instances", "Precision", "Recall", "mAP50", "mAP50-95", "Weights_Path"]
     
     weights_filename = os.path.basename(weights_path)
     
     row = [
         timestamp,
         model_name,
-        weights_path, 
         metrics.get("num_images"),
         metrics.get("num_valid"),
         f"{metrics.get('precision', 0):.4f}",
         f"{metrics.get('recall', 0):.4f}",
         f"{metrics.get('map50', 0):.4f}",
-        f"{metrics.get('map50_95', 0):.4f}"
+        f"{metrics.get('map50_95', 0):.4f}",
+        weights_path
     ]
 
     # Prints
