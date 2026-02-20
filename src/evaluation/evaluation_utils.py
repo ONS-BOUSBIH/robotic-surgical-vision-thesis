@@ -222,7 +222,7 @@ def evaluate_YOLO(yolo_model, dataloader, device,SIGMAS_YOLO, IOU_THRESHOLDS, va
     tp, conf, pcls, gcls = [torch.cat(x, 0).numpy() for x in zip(*yolo_stats)]
     results = ap_per_class(tp, conf, pcls, gcls)
 
-    tp_res, fp_res, p, r, f1, ap, unique_classes = results_custom[0], results_custom[1], results_custom[2], results_custom[3], results_custom[4], results_custom[5], results_custom[6]
+    tp_res, fp_res, p, r, f1, ap, unique_classes = results[0], results[1], results[2], results[3], results[4], results[5], results[6]
     map50_95 = ap.mean()
     map50 = ap[:, 0].mean() 
     return len(yolo_stats), p.mean(),r.mean(), map50, map50_95 , total_valid_instances
@@ -487,9 +487,7 @@ def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluati
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Header 
     header = ["Timestamp", "Model", "Images", "Instances", "Precision", "Recall", "mAP50", "mAP50-95", "Weights_Path"]
-    
-    weights_filename = os.path.basename(weights_path)
-    
+
     row = [
         timestamp,
         model_name,
@@ -505,8 +503,6 @@ def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluati
     # Prints
     print("\n" + "="*50)
     print(f"{model_name.upper()} TEST EVALUATION RESULTS")
-    print("-" * 50)
-    print(f"Weights: {weights_filename}") 
     print("-" * 50)
     
     for i in range(3, len(header)):
