@@ -1,7 +1,7 @@
 # run inference on corresponding left and right frames
 # resize the keypoints to the initial frame size
 # reconstruct predicted kpts in 3D
-from inference import inference
+from thesis_main.src.Keypoints_detection.inference import inference
 from training import *
 import os
 import cv2

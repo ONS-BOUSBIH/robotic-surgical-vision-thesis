@@ -169,8 +169,8 @@ def evaluate_YOLO(yolo_model, dataloader, device,SIGMAS_YOLO, IOU_THRESHOLDS, va
         if not gt_bboxes_list:
             continue
 
-        gt_bboxes = torch.tensor(gt_bboxes_list, device=device, dtype=torch.float32)
-        gt_kpts = torch.tensor(gt_kpts_list, device=device, dtype=torch.float32)
+        gt_bboxes = torch.tensor(np.array(gt_bboxes_list), device=device, dtype=torch.float32)
+        gt_kpts = torch.tensor(np.array(gt_kpts_list), device=device, dtype=torch.float32)
         ignored_bboxes = torch.tensor(ignored_bboxes_list, device=device, dtype=torch.float32)
         
         total_valid_instances += len(gt_bboxes)
@@ -283,8 +283,8 @@ def evaluate_HRNet_full_image(model, dataloader, device,SIGMAS, IOU_THRESHOLDS, 
         if not gt_bboxes_valid:
             continue
 
-        gt_kpts = torch.tensor(gt_kpts_valid, device=device, dtype=torch.float32)
-        gt_bboxes = torch.tensor(gt_bboxes_valid, device=device, dtype=torch.float32)
+        gt_kpts = torch.tensor(np.array(gt_kpts_valid), device=device, dtype=torch.float32)
+        gt_bboxes = torch.tensor(np.array(gt_bboxes_valid), device=device, dtype=torch.float32)
         total_valid_instances += len(gt_kpts)
 
         # Ignore predictions on corrupt Bboxes
@@ -480,7 +480,7 @@ def evaluate_topdown_pipeline(pipeline, test_img_dir, test_label_dir, SIGMAS, IO
     return None
 
 
-def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluation_logs.csv"):
+def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluation_logs.csv", printing= True, saving= True):
     """
     Prints results and appends them to a csv log.
     """
@@ -501,20 +501,22 @@ def log_evaluation_results(model_name, weights_path, metrics, log_path="evaluati
     ]
 
     # Prints
-    print("\n" + "="*50)
-    print(f"{model_name.upper()} TEST EVALUATION RESULTS")
-    print("-" * 50)
-    
-    for i in range(3, len(header)):
-        print(f"{header[i]:<15}: {row[i]}")
-    print("="*50)
+    if printing:
+        print("\n" + "="*50)
+        print(f"{model_name.upper()} TEST EVALUATION RESULTS")
+        print("-" * 50)
+        
+        for i in range(3, len(header)):
+            print(f"{header[i]:<15}: {row[i]}")
+        print("="*50)
 
     # Save
-    file_exists = os.path.isfile(log_path)
-    with open(log_path, mode='a', newline='') as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(header)
-        writer.writerow(row)
-    
-    print(f"Log updated: {os.path.abspath(log_path)}")
+    if saving:
+        file_exists = os.path.isfile(log_path)
+        with open(log_path, mode='a', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(header)
+            writer.writerow(row)
+        
+        print(f"Log updated: {os.path.abspath(log_path)}")
