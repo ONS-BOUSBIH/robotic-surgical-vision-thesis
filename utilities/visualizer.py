@@ -52,7 +52,8 @@ class TrainingVisualizer:
         print(f"Plot saved to: {save_path}")
     
     def plot_vitpose_accuracy(self, metric_col='coco/AP', title='Validation mAP', filename='accuracy.png'):
-        # 1. Extract only the rows that actually have the metric (remove NaNs)
+        """plots the validation metric mAP from ViTpose training"""
+        # Extract only the rows that actually have the metric (remove NaNs)
         clean_df = self.df[['step', metric_col]].dropna()
         
         if clean_df.empty:
@@ -61,7 +62,7 @@ class TrainingVisualizer:
 
         plt.figure(figsize=(10, 6))
         
-        # 2. Plot with markers so points are visible even if disconnected
+        # Plot with markers so points are visible even if disconnected
         plt.plot(clean_df['step'], clean_df[metric_col], 
                 marker='o', linestyle='-', color='red', 
                 linewidth=2, markersize=6, label=metric_col)
