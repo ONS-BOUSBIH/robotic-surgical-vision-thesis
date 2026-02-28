@@ -479,3 +479,17 @@ def evaluate_topdown_pipeline(pipeline, test_img_dir, test_label_dir, SIGMAS, IO
     return None
 
 
+def get_gt_from_hrnet_label_files(yaml_path):
+    """ extracts ground truth key points and visibility masks from the HRNet format label yaml files"""
+    gt_kpts, gt_vis = [], []
+    if os.path.exists(yaml_path):
+        with open(yaml_path, "r") as f:
+            ann = yaml.safe_load(f)
+        for obj in ann["objects"]:  
+            kpts = np.array(obj["keypoints"])
+            vis = np.array(obj["visibility"]).reshape(-1, 1)
+            gt_kpts.append(kpts)
+            gt_vis.append(vis)
+    return np.array(gt_kpts).reshape(-1,2), np.array(gt_vis)
+          
+
