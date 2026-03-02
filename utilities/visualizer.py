@@ -3,11 +3,9 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-
 import pandas as pd
-import matplotlib.pyplot as plt
 import json
-import os
+from src.Keypoints_detection.evaluation.evaluation_utils import get_gt_from_hrnet_label_files
 
 class TrainingVisualizer:
     def __init__(self, log_path, save_dir="plots"):
@@ -99,9 +97,20 @@ class PoseVisualizer:
         ax.scatter(pred_kpts[:, 0], pred_kpts[:, 1], c='red', marker='x', s=40, label='Pred')
         
         # Draw lines between keypoints to show tool structure if needed
-        ax.set_title(f"Instance: {name}")
+        ax.set_title(f"{name}")
         ax.legend()
         plt.axis('off')
         
         plt.savefig(os.path.join(self.output_dir, f"{name}.png"), bbox_inches='tight')
         plt.show()
+    
+    def run_inference_visualization(self,inferencer,inference_indices,img_paths,lbl_paths):
+        """Runs inference on imagesof randomply determined indices and plots the results"""
+        for idx in inference_indices:
+            img_path = img_paths[idx]
+            lbl_path = lbl_paths[idx]
+            gt_kpts, vis = get_gt_from_hrnet_label_files(lbl_path)
+            pred_kpts = inferencer.predict(img_path)
+            pred_kpts = pred_kpts.reshape(-1,2)
+            frame_name= os.path.basename(img_path).split('.')[0]
+            self.visualize_instance(img_path,gt_kpts,pred_kpts, name = f'{frame_name}, index = {idx}')

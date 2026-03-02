@@ -5,7 +5,7 @@ from core.inference import get_max_preds
 
 class keypointsDetectionInferencer:
     def __init__(self, model, model_type, device='cuda',input_size= (256, 192), heatmap_size= (64, 48)):
-        """model_type:'yolopose', 'hrnet' or 'pipline' """
+        """model_type:'yolopose', 'hrnet' or 'pipeline' """
         self.model= model
         self.device = device
         self.model_type= model_type.lower()
@@ -20,7 +20,7 @@ class keypointsDetectionInferencer:
             results = self.model(img_path, verbose=False)
             # YOLO returns [Num_Tools, Num_Kpts, 2]
             return results[0].keypoints.xy.cpu().numpy()
-        elif self.model_type == 'pipline':
+        elif self.model_type == 'pipeline':
             pipeline_results = self.model.predict(img_path) # returns a list
             
             final_coords = []
