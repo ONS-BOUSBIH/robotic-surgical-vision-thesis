@@ -73,7 +73,7 @@ MODEL:
       ALREADY_FINETUNED: false
       LR: 0.001
       SAVE_INT: 100
-      AUGMENTATION: false
+      AUGMENTATION: true
     SAVE:
       EXPERIMENT_DIR: 'results/Keypoints_detection/training_results/HRNet_trainings/Experiment3'
     DATA:
