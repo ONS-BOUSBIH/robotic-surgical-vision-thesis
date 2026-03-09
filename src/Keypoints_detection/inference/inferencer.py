@@ -2,7 +2,7 @@ import cv2
 import torch
 import numpy as np
 from core.inference import get_max_preds
-
+import glob
 class keypointsDetectionInferencer:
     def __init__(self, model, model_type, device='cuda',input_size= (256, 192), heatmap_size= (64, 48)):
         """model_type:'yolopose', 'hrnet' or 'pipeline' """
@@ -65,3 +65,31 @@ class keypointsDetectionInferencer:
             pred_kpts = preds_global[0]
             
         return pred_kpts
+
+def run_multi_tool_inference(inferencer, data_root, max_tools=2):
+    """
+    Runs the inferencer class over all images in a folder and sort instruments by x-coordinate.
+    Returns:
+        - all_preds: (N, 7, 2) array
+        - all_masks: (N, 7) array (1.0 for detected, 0.0 for not detected)
+    """
+    img_paths = sorted(glob.glob(f'{data_root}/**/*.jpg', recursive=True))
+    N = len(img_paths)
+    
+    all_preds = np.full((N, max_tools, 7, 2), 0.0) # Default to 0
+    all_masks = np.zeros((N, max_tools, 7))
+
+    for i, path in enumerate(img_paths):
+        preds = inferencer.predict(path)
+        if len(preds) > 0:
+            # Sort by X-coordinate of the first keypoint for consistency
+            preds = sorted(preds, key=lambda kpts: kpts[0, 0])
+            for t_idx, tool_kpts in enumerate(preds):
+                if t_idx < max_tools:
+                    # Clean coordinates
+                    coords = tool_kpts[:, :2]
+                    all_preds[i, t_idx] = coords
+                    # Mask logic: A keypoint is valid ONLY if x > 0 AND y > 0
+                    all_masks[i, t_idx] = (np.sum(coords, axis=1) > 0).astype(np.float32)
+                    
+    return all_preds, all_masks

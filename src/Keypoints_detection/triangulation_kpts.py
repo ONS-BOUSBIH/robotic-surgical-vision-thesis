@@ -1,8 +1,8 @@
 # run inference on corresponding left and right frames
 # resize the keypoints to the initial frame size
 # reconstruct predicted kpts in 3D
-from thesis_main.src.Keypoints_detection.inference_old import inference
-from training import *
+# from thesis_main.src.Keypoints_detection.inference_old import inference
+# from training import *
 import os
 import cv2
 import glob
@@ -11,7 +11,7 @@ import configparser
 import numpy as np
 import zipfile
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d import Axes3D
 
 
 def get_first_digit(string):
@@ -138,16 +138,33 @@ def reproject(X_3D, X_2D_left,X_2D_right,P_left,P_right):
         err_r.append(eR)
     return np.array(err_l), np.array(err_r), np.array(xL), np.array(xR)    
 
-def resize_preds (preds, org_shape, heatmap_shape):
-    ''' Resize keypoints coordinates from heatmap size to original image size'''
-    H, W = org_shape
-    h, w = heatmap_shape
-    resized_preds= preds.copy()
-    resized_preds[...,0]= resized_preds[...,0]*(W/w)
-    resized_preds[...,1]= resized_preds[...,1]*(H/h)
-    # resized_preds[...,1]= resized_preds[...,0]*(W/w)
-    # resized_preds[...,0]= resized_preds[...,1]*(H/h)
-    return resized_preds
+def run_multi_tool_inference(inferencer, data_root, max_tools=2):
+    """
+    Runs the inferencer class over all images in a folder and sort instruments by x-coordinate.
+    Returns:
+        - all_preds: (N, 7, 2) array
+        - all_masks: (N, 7) array (1.0 for detected, 0.0 for not detected)
+    """
+    img_paths = sorted(glob.glob(f'{data_root}/**/*.jpg', recursive=True))
+    N = len(img_paths)
+    
+    all_preds = np.full((N, max_tools, 7, 2), 0.0) # Default to 0
+    all_masks = np.zeros((N, max_tools, 7))
+
+    for i, path in enumerate(img_paths):
+        preds = inferencer.predict(path)
+        if len(preds) > 0:
+            # Sort by X-coordinate of the first keypoint for consistency
+            preds = sorted(preds, key=lambda kpts: kpts[0, 0])
+            for t_idx, tool_kpts in enumerate(preds):
+                if t_idx < max_tools:
+                    # Clean coordinates
+                    coords = tool_kpts[:, :2]
+                    all_preds[i, t_idx] = coords
+                    # Mask logic: A keypoint is valid ONLY if x > 0 AND y > 0
+                    all_masks[i, t_idx] = (np.sum(coords, axis=1) > 0).astype(np.float32)
+                    
+    return all_preds, all_masks
 
 #### Plotting#####
 def visualize_keypoints_left_right(
@@ -228,10 +245,6 @@ def plot_frame_3d(pred_kpts_3d,target_kpts_3d, title="3D Keypoints", edges= Fals
     zt = target_kpts_3d[:,2]
     #Plot edges
     
-    
-
-    
-
     ax.scatter(xs, ys, zs,color= 'blue', s=40, label='prediction')
     ax.scatter(xt, yt, zt,color='red', s=40, label='target')
     if edges:
@@ -286,20 +299,20 @@ def main(ckpt_path, input_shape, heatmap_shape):
     #Get the original shape of the images
     sample_img_path = sorted(glob.glob(f'{data_root_right}/**/*.jpg',recursive=True))[0]
     sample_img = cv2.imread(sample_img_path)
-    org_shape = sample_img.shape[:2]
-    print('org:', org_shape)
-    print('heatmap:',heatmap_shape)
-    #Resize left and right predicted keypoints 
+    # org_shape = sample_img.shape[:2]
+    # print('org:', org_shape)
+    # print('heatmap:',heatmap_shape)
+    # #Resize left and right predicted keypoints 
    
-    all_preds_left= resize_preds(all_preds_left,org_shape, heatmap_shape) 
-    all_preds_right= resize_preds(all_preds_right,org_shape, heatmap_shape)
+    # all_preds_left= resize_preds(all_preds_left,org_shape, heatmap_shape) 
+    # all_preds_right= resize_preds(all_preds_right,org_shape, heatmap_shape)
     # Get prediction masks (valid argmax values)
     all_mask_pred_left = (all_maxvals_left > threshold).astype(np.float64)
     
     all_mask_pred_right= (all_maxvals_right> threshold).astype(np.float64)
    
-    all_targets_left= resize_preds(all_targets_left,org_shape, heatmap_shape) 
-    all_targets_right= resize_preds(all_targets_right,org_shape, heatmap_shape)
+    # all_targets_left= resize_preds(all_targets_left,org_shape, heatmap_shape) 
+    # all_targets_right= resize_preds(all_targets_right,org_shape, heatmap_shape)
     
     img_paths = sorted(glob.glob(f'{data_root_right}/**/*.jpg',recursive=True))
     img_paths= [os.path.basename(p) for p in img_paths]
