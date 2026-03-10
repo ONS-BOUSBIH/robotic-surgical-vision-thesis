@@ -1,11 +1,11 @@
 import cv2
-import matplotlib.pyplot as plt
-import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import pandas as pd
 import json
 from src.Keypoints_detection.evaluation.evaluation_utils import get_gt_from_hrnet_label_files
+import os
+import numpy as np
+import seaborn as sns
 
 class TrainingVisualizer:
     def __init__(self, log_path, save_dir="plots"):
@@ -77,6 +77,7 @@ class TrainingVisualizer:
        
 
 class PoseVisualizer:
+
     def __init__(self, output_dir="visual_results"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
@@ -114,3 +115,69 @@ class PoseVisualizer:
             pred_kpts = pred_kpts.reshape(-1,2)
             frame_name= os.path.basename(img_path).split('.')[0]
             self.visualize_instance(img_path,gt_kpts,pred_kpts, name = f'{frame_name}, index = {idx}')
+
+
+def evaluate_MAE_and_compare(results_list, model_names=['HRNet', 'ViTPose'], output_dir='results/Keypoints_detection/inference_results/triangulation'):
+    """
+    If results_list has one dict: Plots Tool 0 vs Tool 1 for that model.
+    If results_list has two dicts: Plots HRNet vs ViTPose (merging tools).
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    all_data = []
+
+    # Case 1: Comparing Two Models
+    if len(results_list) == 2:
+        title = "Model Comparison: HRNet vs ViTPose"
+        save_name = "global_model_comparison"
+        x_axis_col = 'Model'
+        
+        for res_dict, m_name in zip(results_list, model_names):
+            # Flatten all tools into one for this model
+            all_errs = []
+            for t_idx in range(len(res_dict['reproj_err_l'])):
+                l = np.concatenate(res_dict['reproj_err_l'][t_idx])
+                r = np.concatenate(res_dict['reproj_err_r'][t_idx])
+                all_errs.append(np.concatenate([l, r]))
+            
+            combined = np.concatenate(all_errs)
+            valid_errs = combined[~np.isnan(combined)]
+            for err in valid_errs:
+                all_data.append({'Model': m_name, 'Error (pixels)': err})
+
+    # Case 2: Standard Tool Comparison (Single Model)
+    else:
+        res_dict = results_list[0]
+        title = f"Tool Comparison for {model_names[0]}"
+        save_name = f"{model_names[0]}_tool_comparison"
+        x_axis_col = 'Tool'
+        
+        for t_idx in range(len(res_dict['reproj_err_l'])):
+            l = np.concatenate(res_dict['reproj_err_l'][t_idx])
+            r = np.concatenate(res_dict['reproj_err_r'][t_idx])
+            combined = np.concatenate([l, r])
+            valid_errs = combined[~np.isnan(combined)]
+            for err in valid_errs:
+                all_data.append({'Tool': f'Tool {t_idx}', 'Error (pixels)': err})
+
+    df = pd.DataFrame(all_data)
+
+    # Plotting
+    plt.figure(figsize=(10, 7))
+    sns.violinplot(x=x_axis_col, y='Error (pixels)', data=df, inner="quartile", palette="Set2")
+    plt.title(title, fontsize=14)
+    plt.grid(axis='y', linestyle='--', alpha=0.5)
+    
+    # Save Plot
+    plot_path = os.path.join(output_dir, f"{save_name}.png")
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    # Metrics Summary
+    summary = df.groupby(x_axis_col)['Error (pixels)'].agg(['mean', 'std', 'median', 'count']).round(3)
+    
+    # Save Metrics to CSV
+    csv_path = os.path.join(output_dir, f"{save_name}_metrics.csv")
+    summary.to_csv(csv_path)
+    
+    print(f"Results saved to {output_dir}")
+    return summary
