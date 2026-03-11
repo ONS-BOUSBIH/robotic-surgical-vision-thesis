@@ -117,67 +117,197 @@ class PoseVisualizer:
             self.visualize_instance(img_path,gt_kpts,pred_kpts, name = f'{frame_name}, index = {idx}')
 
 
-def evaluate_MAE_and_compare(results_list, model_names=['HRNet', 'ViTPose'], output_dir='results/Keypoints_detection/inference_results/triangulation'):
-    """
-    If results_list has one dict: Plots Tool 0 vs Tool 1 for that model.
-    If results_list has two dicts: Plots HRNet vs ViTPose (merging tools).
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    all_data = []
+# def evaluate_MAE_and_compare(results_list, model_names=['HRNet', 'ViTPose'], output_dir='results/Keypoints_detection/inference_results/triangulation'):
+#     """
+#     If results_list has one dict: Plots Tool 0 vs Tool 1 for that model.
+#     If results_list has two dicts: Plots HRNet vs ViTPose (merging tools).
+#     """
+#     os.makedirs(output_dir, exist_ok=True)
+#     all_data = []
 
-    # Case 1: Comparing Two Models
-    if len(results_list) == 2:
-        title = "Model Comparison: HRNet vs ViTPose"
-        save_name = "global_model_comparison"
-        x_axis_col = 'Model'
+#     # Case 1: Comparing Two Models
+#     if len(results_list) == 2:
+#         title = "Model Comparison: HRNet vs ViTPose"
+#         save_name = "global_model_comparison"
+#         x_axis_col = 'Model'
         
-        for res_dict, m_name in zip(results_list, model_names):
-            # Flatten all tools into one for this model
-            all_errs = []
-            for t_idx in range(len(res_dict['reproj_err_l'])):
-                l = np.concatenate(res_dict['reproj_err_l'][t_idx])
-                r = np.concatenate(res_dict['reproj_err_r'][t_idx])
-                all_errs.append(np.concatenate([l, r]))
+#         for res_dict, m_name in zip(results_list, model_names):
+#             # Flatten all tools into one for this model
+#             all_errs = []
+#             for t_idx in range(len(res_dict['reproj_err_l'])):
+#                 l = np.concatenate(res_dict['reproj_err_l'][t_idx])
+#                 r = np.concatenate(res_dict['reproj_err_r'][t_idx])
+#                 all_errs.append(np.concatenate([l, r]))
             
-            combined = np.concatenate(all_errs)
-            valid_errs = combined[~np.isnan(combined)]
-            for err in valid_errs:
-                all_data.append({'Model': m_name, 'Error (pixels)': err})
+#             combined = np.concatenate(all_errs)
+#             valid_errs = combined[~np.isnan(combined)]
+#             for err in valid_errs:
+#                 all_data.append({'Model': m_name, 'Error (pixels)': err})
 
-    # Case 2: Standard Tool Comparison (Single Model)
-    else:
-        res_dict = results_list[0]
-        title = f"Tool Comparison for {model_names[0]}"
-        save_name = f"{model_names[0]}_tool_comparison"
-        x_axis_col = 'Tool'
+#     # Case 2: Standard Tool Comparison (Single Model)
+#     else:
+#         res_dict = results_list[0]
+#         title = f"Tool Comparison for {model_names[0]}"
+#         save_name = f"{model_names[0]}_tool_comparison"
+#         x_axis_col = 'Tool'
         
-        for t_idx in range(len(res_dict['reproj_err_l'])):
-            l = np.concatenate(res_dict['reproj_err_l'][t_idx])
-            r = np.concatenate(res_dict['reproj_err_r'][t_idx])
-            combined = np.concatenate([l, r])
-            valid_errs = combined[~np.isnan(combined)]
-            for err in valid_errs:
-                all_data.append({'Tool': f'Tool {t_idx}', 'Error (pixels)': err})
+#         for t_idx in range(len(res_dict['reproj_err_l'])):
+#             l = np.concatenate(res_dict['reproj_err_l'][t_idx])
+#             r = np.concatenate(res_dict['reproj_err_r'][t_idx])
+#             combined = np.concatenate([l, r])
+#             valid_errs = combined[~np.isnan(combined)]
+#             for err in valid_errs:
+#                 all_data.append({'Tool': f'Tool {t_idx}', 'Error (pixels)': err})
 
-    df = pd.DataFrame(all_data)
+#     df = pd.DataFrame(all_data)
 
-    # Plotting
-    plt.figure(figsize=(10, 7))
-    sns.violinplot(x=x_axis_col, y='Error (pixels)', data=df, inner="quartile", palette="Set2")
-    plt.title(title, fontsize=14)
-    plt.grid(axis='y', linestyle='--', alpha=0.5)
+#     # Plotting
+#     plt.figure(figsize=(10, 7))
+#     sns.violinplot(x=x_axis_col, y='Error (pixels)', data=df, inner="quartile", palette="Set2")
+#     plt.title(title, fontsize=14)
+#     plt.grid(axis='y', linestyle='--', alpha=0.5)
     
-    # Save Plot
-    plot_path = os.path.join(output_dir, f"{save_name}.png")
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-    plt.show()
+#     # Save Plot
+#     plot_path = os.path.join(output_dir, f"{save_name}.png")
+#     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+#     plt.show()
 
-    # Metrics Summary
-    summary = df.groupby(x_axis_col)['Error (pixels)'].agg(['mean', 'std', 'median', 'count']).round(3)
+#     # Metrics Summary
+#     summary = df.groupby(x_axis_col)['Error (pixels)'].agg(['mean', 'std', 'median', 'count']).round(3)
     
-    # Save Metrics to CSV
-    csv_path = os.path.join(output_dir, f"{save_name}_metrics.csv")
-    summary.to_csv(csv_path)
+#     # Save Metrics to CSV
+#     csv_path = os.path.join(output_dir, f"{save_name}_metrics.csv")
+#     summary.to_csv(csv_path)
     
-    print(f"Results saved to {output_dir}")
-    return summary
+#     print(f"Results saved to {output_dir}")
+#     return summary
+
+import os
+import cv2
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from mpl_toolkits.mplot3d import Axes3D
+
+class TriangulationVisualizer:
+    def __init__(self, output_dir='results/Keypoints_detection/inference_results/triangulation'):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        # Skeleton for a 7-keypoint tool
+        self.edges = [(0,1),(1,2),(2,3),(2,4)]
+        self.tool_colors = ['red', 'blue'] 
+
+    def reprojection_error_violin_plots(self, results_list, model_names=['HRNet', 'ViTPose']):
+        """Plots and saves Violin plots and CSV metrics."""
+        all_data = []
+        is_comparison = len(results_list) == 2
+        
+        if is_comparison:
+            title, save_name, x_axis = f"Comparison of the reprojection error: {model_names[0]} vs {model_names[1]}", "global_comparison", 'Model'
+            for res, name in zip(results_list, model_names):
+                for t_idx in range(len(res['reproj_err_l'])):
+                    combined = np.concatenate([np.concatenate(res['reproj_err_l'][t_idx]), 
+                                             np.concatenate(res['reproj_err_r'][t_idx])])
+                    valid = combined[~np.isnan(combined)]
+                    for err in valid: all_data.append({'Model': name, 'Error (pixels)': err})
+        else:
+            res = results_list
+            title, save_name, x_axis = f"Comparison of the reprojection error per tool of model: ({model_names})", f"{model_names}_tools", 'Tool'
+            for t_idx in range(len(res['reproj_err_l'])):
+                combined = np.concatenate([np.concatenate(res['reproj_err_l'][t_idx]), 
+                                         np.concatenate(res['reproj_err_r'][t_idx])])
+                valid = combined[~np.isnan(combined)]
+                for err in valid: all_data.append({'Tool': f'Tool {t_idx}', 'Error (pixels)': err})
+
+        df = pd.DataFrame(all_data)
+        plt.figure(figsize=(10, 6))
+        sns.violinplot(x=x_axis, y='Error (pixels)', data=df, inner="quartile", palette="muted")
+        plt.title(title)
+        plt.savefig(os.path.join(self.output_dir, f"{save_name}_violin.png"), dpi=300)
+        
+        summary = df.groupby(x_axis)['Error (pixels)'].agg(['mean', 'std', 'median', 'count']).round(3)
+        summary.to_csv(os.path.join(self.output_dir, f"{save_name}_metrics.csv"))
+        plt.show()
+        return summary
+
+    def plot_reprojections(self, img_l_path, img_r_path, results, triangulator, frame_name, show=False):
+        """
+        Uses the results from run_triangulation_pipeline for a single-frame path list.
+        results: The dict returned by the pipeline.
+        """
+        img_l = cv2.imread(img_l_path)
+        img_r = cv2.imread(img_r_path)
+        
+        # Extract data (frame 0 since we only passed one pair)
+        pts_3d = results['tri_3d'] # List [Tool0_pts, Tool1_pts]
+        preds_l = results['preds_l']
+        preds_r = results['preds_r']
+
+        fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+        sides = [('left', img_l, preds_l), ('right', img_r, preds_r)]
+
+        for i, (side_name, img, preds) in enumerate(sides):
+            axes[i].imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            
+            # Loop through tools (max_tools)
+            for t_idx in range(len(pts_3d)):
+                # Get points for this specific tool at frame 0
+                tool_3d = pts_3d[t_idx] 
+                tool_2d_raw = preds[0, t_idx] 
+
+                if not np.isnan(tool_3d).any():
+                    # Use your triangulator's projection method
+                    proj_2d = triangulator.project_points(np.array(tool_3d).squeeze(), side=side_name)
+                    
+                    # 1. Plot Detected (Original)
+                    axes[i].scatter(tool_2d_raw[:, 0], tool_2d_raw[:, 1], 
+                                   edgecolors='yellow', facecolors='none', s=40, label='Detected' if t_idx==0 else "")
+                    
+                    # 2. Plot Reprojected (The math check)
+                    axes[i].scatter(proj_2d[:, 0], proj_2d[:, 1], 
+                                   c='red', marker='x', s=30, label='Reprojected' if t_idx==0 else "")
+                    
+                    # 3. Draw Skeleton
+                    for start, end in self.edges:
+                        axes[i].plot([proj_2d[start, 0], proj_2d[end, 0]], 
+                                     [proj_2d[start, 1], proj_2d[end, 1]], 
+                                     color=self.tool_colors[t_idx], alpha=0.8, linewidth=2)
+
+            axes[i].set_title(f"{side_name.upper()} View - Frame {frame_name}")
+            axes[i].axis('off')
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.output_dir, f"repro_frame_{frame_name}.png"), dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close()
+
+    def plot_3d_tools(self, pts_3d, frame_name, show=False):
+        """Creates a 3D scatter plot of the triangulated tools."""
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        for t_idx in range(pts_3d.shape[0]):
+            tool_pts = pts_3d[t_idx] # (7, 3)
+            if np.isnan(tool_pts).any(): continue
+            
+            # Plot joints
+            ax.scatter(tool_pts[:, 0], tool_pts[:, 1], tool_pts[:, 2], c=self.tool_colors[t_idx], s=50)
+            
+            # Plot skeleton lines
+            for start, end in self.edges:
+                ax.plot([tool_pts[start, 0], tool_pts[end, 0]],
+                        [tool_pts[start, 1], tool_pts[end, 1]],
+                        [tool_pts[start, 2], tool_pts[end, 2]], color=self.tool_colors[t_idx], linewidth=2)
+        
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Y (mm)')
+        ax.set_zlabel('Z (mm)')
+        ax.set_title(f'3D Reconstructed Tools - {frame_name}')
+        plt.savefig(os.path.join(self.output_dir, f"3d_reconstruction_{frame_name}.png"))
+        if show:
+            plt.show()
+        else:
+            plt.close()

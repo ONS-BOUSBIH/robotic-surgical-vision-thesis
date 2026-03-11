@@ -4,12 +4,8 @@ import glob
 import configparser
 import numpy as np
 import zipfile
-import matplotlib.pyplot as plt
-import yaml
 from src.Keypoints_detection.inference.inferencer import run_multi_tool_inference
-import re
-
-
+from src.Geometry.triangulation.triangulation_utils import get_first_digit
 
 class Triangulator:
     def __init__(self, num_keypoints=7):
@@ -66,43 +62,6 @@ class Triangulator:
                 undistorted[i] = pts_undist.squeeze(1)
         
         return undistorted.reshape(original_shape)
-    
-    # def undistort_points(self, kpts, side='left'):
-    #     """
-    #     Undistorts keypoints while strictly preserving the input shape.
-    #     Handles (N, Tools, K, 2) or (N, K, 2).
-    #     """
-    #     K = self.K_l if side == 'left' else self.K_r
-    #     D = self.D_l if side == 'left' else self.D_r
-        
-    #     # Initialize output with NaNs to ensure we don't triangulate 'zero' points
-    #     undistorted = np.full_like(kpts, np.nan, dtype=np.float32)
-
-    #     if kpts.ndim == 4:
-    #         # Loop through Frames (N) and Tools (T)
-    #         for n in range(kpts.shape[0]):
-    #             for t in range(kpts.shape[1]):
-    #                 tool_kpts = kpts[n, t] # Shape (7, 2)
-                    
-    #                 # Only process if at least one keypoint is detected
-    #                 if not np.all(tool_kpts == 0):
-    #                     pts_undist = cv2.undistortPoints(
-    #                         tool_kpts.astype(np.float32).reshape(-1, 1, 2), 
-    #                         K, D, P=K
-    #                     )
-    #                     undistorted[n, t] = pts_undist.reshape(self.num_kpts, 2)
-                        
-    #     elif kpts.ndim == 3:
-    #         # Loop through Frames only (legacy support)
-    #         for n in range(kpts.shape[0]):
-    #             if not np.all(kpts[n] == 0):
-    #                 pts_undist = cv2.undistortPoints(
-    #                     kpts[n].astype(np.float32).reshape(-1, 1, 2), 
-    #                     K, D, P=K
-    #                 )
-    #                 undistorted[n] = pts_undist.reshape(self.num_kpts, 2)
-
-    #     return undistorted
 
     def triangulate(self, pts_l, pts_r, masks_l, masks_r):
         """
@@ -147,36 +106,55 @@ class Triangulator:
 
         return err_l, err_r
 
+    def project_points(self, X_3D, side='left'):
+        """
+        Projects 3D points back to 2D image plane.
+        X_3D: array of shape (N, K, 3) or (K, 3)
+        """
+        # Handle single tool (K, 3) by adding a temporary batch dimension
+        is_single_tool = (X_3D.ndim == 2)
+        if is_single_tool:
+            X_3D = X_3D[np.newaxis, ...] # Change (K, 3) to (1, K, 3)
 
-def get_first_digit(string):
-    match = re.search(r"\d+", string)
-    return match.group() if match else None
+        N, K, _ = X_3D.shape
+        # Initialize the output array with NaNs
+        projected_2d = np.full((N, K, 2), np.nan)
+
+        # Select the correct projection matrix once outside the loop
+        P = self.P_l if side.lower() == 'left' else self.P_r
+
+        for i in range(N):
+            # Convert to homogeneous
+            valid = ~np.isnan(X_3D[i, :, 0])
+            if not np.any(valid): 
+                continue
+            
+            # Build homogeneous coordinates (x, y, z, 1)
+            X_h = np.hstack([X_3D[i, valid], np.ones((np.sum(valid), 1))]).T
+
+            # Project: (3, 4) @ (4, V) -> (3, V)
+            proj_h = P @ X_h
+            
+            # Homogeneous divide: (x/w, y/w)
+            # Resulting 'proj' shape is (V, 2)
+            proj = (proj_h[:2] / proj_h[2]).T
+            
+            # Assign back to the correct indices in our NaN array
+            projected_2d[i, valid] = proj
+
+        # Return (K, 2) if input was (K, 3), otherwise (N, K, 2)
+        return projected_2d.squeeze(0) if is_single_tool else projected_2d
 
 def run_triangulation_pipeline(
     inferencer, 
     triangulator, 
-    data_root_l, 
-    data_root_r, 
-    split_file, 
+    test_paths_l, 
+    test_paths_r, 
+    test_video_list, 
     org_dataset_path, 
     max_tools=2
 ):
-    # Load Split and filter paths
-    with open(split_file, "r") as f:
-        splits = yaml.safe_load(f)
-    test_video_list = splits['test']
     
-    # Get all paths 
-    all_img_paths_l = sorted(glob.glob(f'{data_root_l}/**/*.jpg', recursive=True))
-    all_img_paths_r = sorted(glob.glob(f'{data_root_r}/**/*.jpg', recursive=True))
-
-    # Only keep paths where the video ID is in test_video_list
-    test_paths_l = [p for p in all_img_paths_l if get_first_digit(os.path.basename(p)) in test_video_list]
-    test_paths_r = [p for p in all_img_paths_r if get_first_digit(os.path.basename(p)) in test_video_list]
-
-    print(f"Total images in directory: {len(all_img_paths_l)}")
-    print(f"Images to process (Test Split): {len(test_paths_l)}")
-
     # Run Inference ONLY on test paths
     print("Running batch inference on Test frames...")
     all_preds_l, all_masks_l = run_multi_tool_inference(inferencer, test_paths_l, max_tools)
@@ -231,87 +209,4 @@ def run_triangulation_pipeline(
         results['video_metadata'].append({'id': video_id, 'range': (start, end)})
 
     return results
-    
-# def run_triangulation_pipeline(
-#     inferencer, 
-#     triangulator, 
-#     data_root_l, 
-#     data_root_r, 
-#     split_file, 
-#     org_dataset_path, 
-#     max_tools=2
-# ):
-#     """
-#     Standalone pipeline to run multi-tool inference, triangulation, 
-#     and error evaluation across a test split.
-#     """
-    
-#     # Run Multi-Tool Inference (returns (N, Max_Tools, 7, 2))
-#     print("Running batch inference on Left and Right frames...")
-#     all_preds_l, all_masks_l = run_multi_tool_inference(inferencer, data_root_l, max_tools)
-#     all_preds_r, all_masks_r = run_multi_tool_inference(inferencer, data_root_r, max_tools)
-#     print(all_preds_l.shape)
-#     print(all_masks_l.shape)
-#     # Prepare Split and Frame counts
-#     with open(split_file, "r") as f:
-#         splits = yaml.safe_load(f)
-#     test_video_list = splits['test']
-    
-#     img_paths = sorted(glob.glob(f'{data_root_r}/**/*.jpg', recursive=True))
-#     img_names = [os.path.basename(p) for p in img_paths]
-    
-#     n_frames = {vid: 0 for vid in test_video_list}
-#     for p in img_names:
-#         digit = get_first_digit(p)
-#         if digit in n_frames: 
-#             n_frames[digit] += 1
 
-#     frame_counts = [n_frames[vid] for vid in test_video_list]
-#     cumulative = [0] + np.cumsum(frame_counts).tolist()
-    
-#     zip_files = sorted(glob.glob(f"{org_dataset_path}/*.zip"))
-    
-#     # Results Containers (Stored by Tool Index)
-#     results = {
-#         'tri_3d': [[] for _ in range(max_tools)],
-#         'reproj_err_l': [[] for _ in range(max_tools)],
-#         'reproj_err_r': [[] for _ in range(max_tools)],
-#         'preds_l': all_preds_l,
-#         'preds_r': all_preds_r,
-#         'video_metadata': []
-#     }
-
-#     # Main Triangulation Loop
-#     for i, video_id in enumerate(test_video_list):
-#         print(f"Processing Video: {video_id}")
-#         start, end = cumulative[i], cumulative[i+1]
-        
-#         # Match calibration ZIP
-#         zip_path = [f for f in zip_files if video_id in os.path.basename(f)][0]
-#         triangulator.load_calibration(zip_path)
-
-#         for t in range(max_tools):
-#             # Slice current video and tool
-#             p_l = all_preds_l[start:end, t]
-#             p_r = all_preds_r[start:end, t]
-#             m_l = all_masks_l[start:end, t]
-#             m_r = all_masks_r[start:end, t]
-
-#             # Undistort and Triangulate
-#             undist_l = triangulator.undistort_points(p_l, side='left')
-#             undist_r = triangulator.undistort_points(p_r, side='right')
-            
-#             pts_3d = triangulator.triangulate(undist_l, undist_r, m_l, m_r)
-            
-#             # Evaluate Error
-#             err_l, err_r = triangulator.get_reprojection_error(pts_3d, p_l, p_r)
-
-#             # Store results
-#             results['tri_3d'][t].append(pts_3d)
-#             results['reproj_err_l'][t].append(err_l)
-#             results['reproj_err_r'][t].append(err_r)
-            
-#         results['video_metadata'].append({'id': video_id, 'range': (start, end)})
-
-#     print("Triangulation Pipeline Complete.")
-#     return results
