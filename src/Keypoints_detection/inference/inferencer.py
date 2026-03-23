@@ -86,7 +86,6 @@ def run_multi_tool_inference(inferencer, data_list, max_tools=2):
             preds = sorted(preds, key=lambda kpts: kpts[0, 0])
             for t_idx, tool_kpts in enumerate(preds):
                 if t_idx < max_tools:
-                    # Clean coordinates
                     coords = tool_kpts[:, :2]
                     all_preds[i, t_idx] = coords
                     # Mask logic: A keypoint is valid ONLY if x > 0 AND y > 0

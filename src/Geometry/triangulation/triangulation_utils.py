@@ -2,6 +2,7 @@ import numpy as np
 import re
 import glob 
 import yaml 
+import random
 import os
 
 def get_first_digit(string):
@@ -56,8 +57,6 @@ def calculate_success_metrics(results_dict):
         }
         
     return success_stats
-import random
-import os
 
 def get_random_stereo_pairs(left_paths, right_paths, num_pairs=5, seed=42):
     """
@@ -65,23 +64,23 @@ def get_random_stereo_pairs(left_paths, right_paths, num_pairs=5, seed=42):
     Returns: A list of dicts containing index, paths, and the source video ID 
              using the project's get_first_digit logic.
     """
-    # 1. Set the seed for reproducibility
+    # Set the seed for reproducibility
     random.seed(seed)
     
-    # 2. Safety check: ensure lists are the same length
+    # Safety check: ensure lists are the same length
     if len(left_paths) != len(right_paths):
         print(f"Warning: List mismatch ({len(left_paths)} vs {len(right_paths)}). Truncating.")
         min_len = min(len(left_paths), len(right_paths))
         left_paths, right_paths = left_paths[:min_len], right_paths[:min_len]
 
-    # 3. Zip with original indices
+    # Zip with original indices
     indexed_pairs = list(enumerate(zip(left_paths, right_paths)))
     
-    # 4. Sample
+    # Sample
     sample_size = min(num_pairs, len(indexed_pairs))
     sampled_data = random.sample(indexed_pairs, sample_size)
     
-    # 5. Format output
+    # Format output
     results = []
     for idx, (l_p, r_p) in sampled_data:
         # Using your specific helper to extract the video ID
@@ -94,3 +93,41 @@ def get_random_stereo_pairs(left_paths, right_paths, num_pairs=5, seed=42):
         })
         
     return results
+
+def get_failure_cases(results, error_threshold=15.0, top_k=5):
+    failures = []
+    
+    # Shapes are  (2, 6, 334, 7)
+    err_l_all = np.array(results['reproj_err_l']) 
+    err_r_all = np.array(results['reproj_err_r'])
+    
+    num_tools, num_videos, num_frames, num_kpts = err_l_all.shape
+    
+    for t_idx in range(num_tools):
+        for v_idx in range(num_videos):
+            # errors shape: (334, 7)
+            errors_l = err_l_all[t_idx, v_idx] 
+            errors_r = err_r_all[t_idx, v_idx]
+          
+            
+            combined = np.maximum(errors_l, errors_r)
+            max_per_frame = np.nanmax(combined, axis=1)
+                
+            
+            # Find frames in the current video taht are exceeding the threshold
+            indices = indices = np.where(max_per_frame > error_threshold)[0]
+            
+            
+            if indices.size > 0:
+                for f_idx in indices:
+                    failures.append({
+                        'tool_idx': t_idx,
+                        'video_idx': v_idx,
+                        'frame_idx': int(f_idx),
+                        'error': float(max_per_frame[f_idx])
+                    })
+            
+    # Sort by the single float error value
+    failures = sorted(failures, key=lambda x: x['error'], reverse=True)[:top_k]
+   
+    return failures

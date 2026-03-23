@@ -260,15 +260,15 @@ class TriangulationVisualizer:
                     # Use your triangulator's projection method
                     proj_2d = triangulator.project_points(np.array(tool_3d).squeeze(), side=side_name)
                     
-                    # 1. Plot Detected (Original)
+                    #Plot Detected 
                     axes[i].scatter(tool_2d_raw[:, 0], tool_2d_raw[:, 1], 
                                    edgecolors='yellow', facecolors='none', s=40, label='Detected' if t_idx==0 else "")
                     
-                    # 2. Plot Reprojected (The math check)
+                    # Plot Reprojected 
                     axes[i].scatter(proj_2d[:, 0], proj_2d[:, 1], 
                                    c='red', marker='x', s=30, label='Reprojected' if t_idx==0 else "")
                     
-                    # 3. Draw Skeleton
+                    # Draw Skeleton
                     for start, end in self.edges:
                         axes[i].plot([proj_2d[start, 0], proj_2d[end, 0]], 
                                      [proj_2d[start, 1], proj_2d[end, 1]], 
