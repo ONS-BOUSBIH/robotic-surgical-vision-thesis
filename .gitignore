@@ -39,3 +39,16 @@ boxplots/
 .viminfo
 *.cache
 **/args.yaml
+
+# nnUnet-related massive files
+nnUNetPlans_*/
+# Ignore raw data (it's too big and contains sensitive medical images)
+**/nnUNet_raw/*
+
+# Ignore preprocessed data (this is just cache/intermediary files)
+**/nnUNet_preprocessed/*
+
+# Ignore training results (model weights are 100MB+ each)
+**/nnunet_results/*
+**/nnunet_preprocessed/*
+*.txt 
