@@ -7,6 +7,7 @@ import os
 import numpy as np
 import seaborn as sns
 
+
 class TrainingVisualizer:
     def __init__(self, log_path, save_dir="plots"):
         self.log_path = log_path
@@ -116,79 +117,6 @@ class PoseVisualizer:
             frame_name= os.path.basename(img_path).split('.')[0]
             self.visualize_instance(img_path,gt_kpts,pred_kpts, name = f'{frame_name}, index = {idx}')
 
-
-# def evaluate_MAE_and_compare(results_list, model_names=['HRNet', 'ViTPose'], output_dir='results/Keypoints_detection/inference_results/triangulation'):
-#     """
-#     If results_list has one dict: Plots Tool 0 vs Tool 1 for that model.
-#     If results_list has two dicts: Plots HRNet vs ViTPose (merging tools).
-#     """
-#     os.makedirs(output_dir, exist_ok=True)
-#     all_data = []
-
-#     # Case 1: Comparing Two Models
-#     if len(results_list) == 2:
-#         title = "Model Comparison: HRNet vs ViTPose"
-#         save_name = "global_model_comparison"
-#         x_axis_col = 'Model'
-        
-#         for res_dict, m_name in zip(results_list, model_names):
-#             # Flatten all tools into one for this model
-#             all_errs = []
-#             for t_idx in range(len(res_dict['reproj_err_l'])):
-#                 l = np.concatenate(res_dict['reproj_err_l'][t_idx])
-#                 r = np.concatenate(res_dict['reproj_err_r'][t_idx])
-#                 all_errs.append(np.concatenate([l, r]))
-            
-#             combined = np.concatenate(all_errs)
-#             valid_errs = combined[~np.isnan(combined)]
-#             for err in valid_errs:
-#                 all_data.append({'Model': m_name, 'Error (pixels)': err})
-
-#     # Case 2: Standard Tool Comparison (Single Model)
-#     else:
-#         res_dict = results_list[0]
-#         title = f"Tool Comparison for {model_names[0]}"
-#         save_name = f"{model_names[0]}_tool_comparison"
-#         x_axis_col = 'Tool'
-        
-#         for t_idx in range(len(res_dict['reproj_err_l'])):
-#             l = np.concatenate(res_dict['reproj_err_l'][t_idx])
-#             r = np.concatenate(res_dict['reproj_err_r'][t_idx])
-#             combined = np.concatenate([l, r])
-#             valid_errs = combined[~np.isnan(combined)]
-#             for err in valid_errs:
-#                 all_data.append({'Tool': f'Tool {t_idx}', 'Error (pixels)': err})
-
-#     df = pd.DataFrame(all_data)
-
-#     # Plotting
-#     plt.figure(figsize=(10, 7))
-#     sns.violinplot(x=x_axis_col, y='Error (pixels)', data=df, inner="quartile", palette="Set2")
-#     plt.title(title, fontsize=14)
-#     plt.grid(axis='y', linestyle='--', alpha=0.5)
-    
-#     # Save Plot
-#     plot_path = os.path.join(output_dir, f"{save_name}.png")
-#     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-#     plt.show()
-
-#     # Metrics Summary
-#     summary = df.groupby(x_axis_col)['Error (pixels)'].agg(['mean', 'std', 'median', 'count']).round(3)
-    
-#     # Save Metrics to CSV
-#     csv_path = os.path.join(output_dir, f"{save_name}_metrics.csv")
-#     summary.to_csv(csv_path)
-    
-#     print(f"Results saved to {output_dir}")
-#     return summary
-
-import os
-import cv2
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from mpl_toolkits.mplot3d import Axes3D
 
 class TriangulationVisualizer:
     def __init__(self, output_dir='results/Keypoints_detection/inference_results/triangulation'):
@@ -311,3 +239,55 @@ class TriangulationVisualizer:
             plt.show()
         else:
             plt.close()
+
+class SegmentationVisualizer:
+    def __init__(self, alpha=0.4, cmap_gt='spring', cmap_pred='autumn'):
+        """
+        visualizer for segmentation tasks.
+        """
+        self.alpha = alpha
+        self.cmap_gt = cmap_gt
+        self.cmap_pred = cmap_pred
+
+    def _overlay_mask(self, ax, image, mask, cmap, title):
+        """Internal helper to mask background and overlay on axis."""
+        ax.imshow(image)
+        if mask is not None:
+            # Mask the background to make it transparent
+            masked_data = np.ma.masked_where(mask == 0, mask)
+            ax.imshow(masked_data, cmap=cmap, alpha=self.alpha)
+        ax.set_title(title, fontsize=10)
+        ax.axis('off')
+
+    def plot_comparison(self, image, gt_mask, pred_mask, title_base="Case", metrics=None, save_path=None, display=True):
+        """
+        Creates a 1x2 or 1x3 plot depending on provided masks.
+        metrics: dict of {metric_name: value} to display in title.
+        """
+        num_plots = 2 if gt_mask is not None and pred_mask is not None else 1
+        fig, axes = plt.subplots(1, num_plots, figsize=(9 * num_plots, 6))
+        
+        # If only one plot, axes isn't a list
+        if num_plots == 1: axes = [axes]
+
+        # Formatting metrics string
+        metrics_str = " | ".join([f"{k}: {v:.4f}" for k, v in metrics.items()]) if metrics else ""
+
+        # GT Overlay
+        if gt_mask is not None:
+            self._overlay_mask(axes[0], image, gt_mask, self.cmap_gt, f"{title_base}\nGround Truth")
+
+        # Pred Overlay
+        if pred_mask is not None:
+            idx = 1 if gt_mask is not None else 0
+            self._overlay_mask(axes[idx], image, pred_mask, self.cmap_pred, f"Prediction\n{metrics_str}")
+
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        if display:
+            plt.show()
+        else:
+            plt.draw()
+        plt.close(fig)
