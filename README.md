@@ -7,9 +7,8 @@ This repository contains the code for my thesis project focused detection and 3D
 - `configs/`: Model configuration files (.yaml, .py).
 - `src/`: Core Python modules for data processing and model wrappers.
 - `notebooks/`: Research exploration and visualization.
-- `scripts/`: Bash scripts for remote training.
+- `utilities/`: helper utils scripts (logging, visualization,...)
 
 ## Setup
-1. Clone the repository.
-2. Install requirements: `pip install -r requirements.txt`
-3. Data should be placed in the `data/` directory (ignored by Git).
+Not fully usable yet, still under reviews and work!
+###                                        Coming soon!
