@@ -36,10 +36,28 @@ class Triangulator:
             T = np.array([float(config[section][f"T_{i}"]) for i in range(3)]).reshape(3, 1)
             D = np.array([float(config[section][f"kc_{i}"]) for i in range(5)])
             P = K @ np.hstack([R, T])
-            return P, K, D
+            return P, K, D, R, T
 
-        self.P_l, self.K_l, self.D_l = get_cam_params("StereoLeft")
-        self.P_r, self.K_r, self.D_r = get_cam_params("StereoRight")
+        self.P_l, self.K_l, self.D_l, R_l, T_l = get_cam_params("StereoLeft")
+        self.P_r, self.K_r, self.D_r, R_r, T_r = get_cam_params("StereoRight")
+
+        # We need the R and T that takes a point from Left space to Right space.
+        # R_rel = R_r @ R_l.T
+        # T_rel = T_r - (R_rel @ T_l)
+        # If StereoLeft is already Identity/Zero, these formulas just return R_r and T_r.
+        R_rel = R_r @ R_l.T
+        T_rel = T_r - (R_rel @ T_l)
+
+        # Compute Essential Matrix using RELATIVE params
+        t = T_rel.flatten()
+        t_skew = np.array([[0, -t[2], t[1]],
+                           [t[2], 0, -t[0]],
+                           [-t[1], t[0], 0]])
+        E = t_skew @ R_rel
+
+        # Compute Fundamental Matrix
+        self.F = np.linalg.inv(self.K_r).T @ E @ np.linalg.inv(self.K_l)
+
         return self.P_l, self.P_r
 
     def undistort_points(self, kpts, side='left'):
@@ -144,6 +162,51 @@ class Triangulator:
 
         # Return (K, 2) if input was (K, 3), otherwise (N, K, 2)
         return projected_2d.squeeze(0) if is_single_tool else projected_2d
+    
+    def reconstruct_mask_3d(self, mask_l, mask_r, sampling_rate=10):
+        """Reconstructs 3D tool shape with geometry constraints."""
+        y_l, x_l = np.where(mask_l > 0)
+        y_r, x_r = np.where(mask_r > 0)
+        if len(x_l) == 0 or len(x_r) == 0: return np.array([])
+
+        pts_r_all = np.column_stack((x_r, y_r))
+        points_3d = []
+
+        for i in range(0, len(x_l), sampling_rate):
+            u_l, v_l = x_l[i], y_l[i]
+            pt_l = np.array([u_l, v_l, 1.0]).reshape(3, 1)
+            line = self.F @ pt_l
+            a, b, c = line.flatten()
+
+            # 1. Distance to epipolar line
+            denom = np.sqrt(a**2 + b**2)
+            dist = np.abs(a * pts_r_all[:, 0] + b * pts_r_all[:, 1] + c) / denom
+            
+            # 2. DISPARITY CONSTRAINT: 
+            # In your data, the Right image tool is shifted left. 
+            # So Right_x MUST be less than Left_x.
+            mask_matches = (dist < 1.2) & (pts_r_all[:, 0] < u_l)
+            possible = pts_r_all[mask_matches]
+
+            if len(possible) > 0:
+                # 3. Pick match closest to the same Y coordinate
+                best_match = possible[np.argmin(np.abs(possible[:, 1] - v_l))]
+                u_r, v_r = best_match
+
+                # 4. Triangulate
+                p_l_undist = cv2.undistortPoints(np.array([[[u_l, v_l]]], dtype=np.float32), 
+                                                 self.K_l, self.D_l, P=self.K_l)
+                p_r_undist = cv2.undistortPoints(np.array([[[u_r, v_r]]], dtype=np.float32), 
+                                                 self.K_r, self.D_r, P=self.K_r)
+
+                X_h = cv2.triangulatePoints(self.P_l, self.P_r, p_l_undist.T, p_r_undist.T)
+                X_3d = (X_h[:3] / X_h[3]).T
+                
+                # 5. DEPTH FILTER: Surgical tools are usually 50-250mm from the lens
+                if 20 < X_3d[0, 2] < 280:
+                    points_3d.append(X_3d)
+
+        return np.array(points_3d).reshape(-1, 3) if points_3d else np.array([])
 
 def run_triangulation_pipeline(
     inferencer, 

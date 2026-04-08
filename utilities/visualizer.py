@@ -239,6 +239,33 @@ class TriangulationVisualizer:
             plt.show()
         else:
             plt.close()
+    
+    def plot_3d_mask(self, points_3d, frame_name, show=False):
+        """
+        Plots the dense point cloud reconstructed from binary masks.
+        points_3d: (N, 3) array of reconstructed pixels.
+        """
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        if points_3d.size > 0:
+            
+            ax.scatter(points_3d[:, 0], points_3d[:, 1], points_3d[:, 2], c=points_3d[:, 2], s=2)
+
+        # Fix the aspect ratio so it doesn't look like a flattened mess
+        ax.set_box_aspect([1,1,1]) 
+        # Set explicit limits based on the tool (adjust values based on your data)
+        ax.set_zlim(0, 250)
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Y (mm)')
+        ax.set_zlabel('Z (mm)')
+        ax.set_title(f'3D Mask Reconstruction - {frame_name}')
+        
+        
+        
+        #plt.savefig(os.path.join(self.output_dir, f"mask_3d_{frame_name}.png"))
+        if show: plt.show()
+        else: plt.close()
 
 class SegmentationVisualizer:
     def __init__(self, alpha=0.4, cmap_gt='spring', cmap_pred='autumn'):

@@ -348,13 +348,41 @@ def add_bboxes_to_surgpose_data(frame_root, kpt_root, zip_root, save_ann):
                 convert_yaml(old_yaml, new_yaml, bbox_dict)
        
 
+########################### Adding left or right to the files names#############################
+
+def rename_surgpose_with_tag(root_dir, tag='_left_', dry_run=True):
+    """
+    Renames files by injecting a tag before 'frame_'.
+    Example with tag='_left_': 
+    vid_000000_frame_000000.jpg -> vid_000000_left_frame_000000.jpg
+    """
+    root_path = Path(root_dir)
+    count = 0
+    # Walk through video ID folders
+    for vid_folder in root_path.iterdir():
+        if not vid_folder.is_dir():
+            continue
+            
+        for file_path in vid_folder.iterdir():
+            # Only rename if 'frame_' is present and the tag isn't already there
+            if "frame_" in file_path.name and tag not in file_path.name:
+                
+                # Logic: Split at 'frame_', then join back with the tag
+                # This ensures 'vid_000000_' remains at the start
+                parts = file_path.name.split("frame_")
+                new_name = f"{parts[0]}{tag}frame_{parts[1]}"
+                new_path = file_path.with_name(new_name)
+                
+                if dry_run:
+                    print(f"[DRY RUN] {file_path.name} -> {new_name}")
+                else:
+                    file_path.rename(new_path)
+                count += 1
+                
+    status = "Would rename" if dry_run else "Successfully renamed"
+    print(f"\n--- {status} {count} files with tag '{tag}' ---")
 
 
-
-
-
-
-    
 
 if __name__ == '__main__':
     # split_path='/srv/homes/onbo10/thesis_Ons/MiniSurgPose/Extracted3_left_right/video_split.yaml'
@@ -372,9 +400,25 @@ if __name__ == '__main__':
     # add_bboxes_to_surgpose_data(frame_root,kpt_root,zip_root,save_ann)
 
     ############# YOLO POSE ESTIMATION ###################
-    split_path='/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/video_split.yaml'
-    dataset_root='/srv/homes/onbo10/thesis_Ons/HRNet_YOLO/yolo_formated_surgpose'
-    frames_path= '/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
-    keypoints_path='/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_keypoints'
-    zipfolder= '/srv/homes/onbo10/thesis_Ons/SurgePoseData'
-    build_yolo_pose_dataset(split_path,dataset_root, frames_path, keypoints_path, zipfolder)
+    # split_path='/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/video_split.yaml'
+    # dataset_root='/srv/homes/onbo10/thesis_Ons/HRNet_YOLO/yolo_formated_surgpose'
+    # frames_path= '/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_frames'
+    # keypoints_path='/srv/homes/onbo10/thesis_Ons/SurgePoseData/Extracted_left_right/extracted_keypoints'
+    # zipfolder= '/srv/homes/onbo10/thesis_Ons/SurgePoseData'
+    # build_yolo_pose_dataset(split_path,dataset_root, frames_path, keypoints_path, zipfolder)
+
+    ########### Adding bboxes for left and write data sets ###########################
+
+    frame_root= '/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet/Extracted/extracted_frames'
+    
+    kpt_root= '/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet/Extracted/extracted_keypoints'
+    zip_root= '/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet'
+    save_ann= '/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet/Extracted/extracted_bboxes_kpts'
+    add_bboxes_to_surgpose_data(frame_root,kpt_root,zip_root,save_ann)
+
+    ############################# renaming #############################################
+
+    #rename_surgpose_with_tag("/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet/Extracted/extracted_keypoints", tag='left_', dry_run=False)
+
+    # For Right tools later:
+    # rename_surgpose_with_tag("/srv/homes/onbo10/thesis_main/data/SurgPose/SurgPose_for_HRNet/Extracted_right_test/extracted_keypoints", tag='right_', dry_run=False)
