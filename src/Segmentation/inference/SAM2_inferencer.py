@@ -3,25 +3,6 @@ import cv2
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-from pathlib import Path
-from ultralytics import SAM
-
-
-
-import os
-import cv2
-import yaml
-import numpy as np
-from pathlib import Path
-from ultralytics import SAM
-from tqdm import tqdm
-
-import os
-import cv2
-import yaml
-import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
 from ultralytics import SAM
@@ -117,10 +98,10 @@ class SAM2SegmentationInferencer:
                             mask_np = (m.cpu().numpy() > 0).astype(np.uint8) * 255
                             final_mask = cv2.bitwise_or(final_mask, mask_np)
 
-                # 5. Save the combined binary mask
+                #Save the combined binary mask
                 cv2.imwrite(str(mask_out / f"{base_name}.png"), final_mask)
                 
-                # 6. Save the visual overlay with all boxes/points shown
+                #Save the visual overlay with all boxes/points shown
                 self._save_diagnostic_overlay(
                     img_bgr=img_bgr, 
                     mask=final_mask, 
@@ -157,102 +138,3 @@ class SAM2SegmentationInferencer:
         plt.savefig(save_path, bbox_inches='tight', pad_inches=0.1)
         plt.close()
         
-# class SAM2SegmentationInferencer:
-
-#     def __init__(self, model_path="sam2_b.pt", device="cuda"):
-#         print(f"Initializing SAM 2 on {device}...")
-#         self.model = SAM(model_path)
-#         self.device = device
-
-#     def run_inference(self, source_root, bbox_root, target_root, video_ids):
-#         """
-#         source_root: Path to image video folders (000033, etc.)
-#         bbox_root: Path to YAML video folders
-#         target_root: Where to save masks and overlay plots
-#         """
-#         mask_out = Path(target_root) / "binary_masks"
-#         plot_out = Path(target_root) / "overlay_plots"
-#         mask_out.mkdir(parents=True, exist_ok=True)
-#         plot_out.mkdir(parents=True, exist_ok=True)
-
-#         for vid_id in video_ids:
-#             vid_img_path = os.path.join(source_root, vid_id)
-#             vid_bbox_path = os.path.join(bbox_root, vid_id)
-
-#             if not os.path.isdir(vid_img_path):
-#                 continue
-
-#             # Get frames and ensure they match annotations
-#             frames = sorted([f for f in os.listdir(vid_img_path) if f.lower().endswith('.jpg')])
-            
-#             for frame_name in tqdm(frames, desc=f"Video {vid_id}"):
-#                 base_name = os.path.splitext(frame_name)[0]
-#                 img_path = os.path.join(vid_img_path, frame_name)
-#                 yaml_path = os.path.join(vid_bbox_path, f"{base_name}.yaml")
-
-#                 if not os.path.exists(yaml_path):
-#                     continue
-
-#                 #Load Image and YAML
-#                 img_bgr = cv2.imread(img_path)
-#                 with open(yaml_path, 'r') as f:
-#                     data = yaml.safe_load(f)
-
-#                 #Extract BBoxes
-#                 bboxes = []
-#                 if 'objects' in data:
-#                     for obj in data['objects']:
-#                         if obj.get('bbox'):
-#                             bboxes.append(obj['bbox'])
-
-#                 if not bboxes:
-#                     continue
-
-#                 #SAM 2 Inference using bboxes as prompts
-#                 results = self.model.predict(
-#                     source=img_path,
-#                     bboxes=bboxes,
-#                     device=self.device,
-#                     verbose=False
-#                 )
-
-#                 #Create combined binary mask
-#                 h, w = img_bgr.shape[:2]
-#                 final_mask = np.zeros((h, w), dtype=np.uint8)
-                
-#                 if results[0].masks is not None:
-#                     for m in results[0].masks.data:
-#                         mask_np = (m.cpu().numpy() > 0).astype(np.uint8) * 255
-#                         final_mask = cv2.bitwise_or(final_mask, mask_np)
-
-#                 #Save Results
-#                 save_name = f"{base_name}.png"
-#                 cv2.imwrite(str(mask_out / save_name), final_mask)
-                
-#                 #Save Diagnostic Overlay
-#                 self._save_overlay(img_bgr, final_mask, bboxes, plot_out / save_name)
-
-#     def _save_overlay(self, img_bgr, mask, bboxes, save_path):
-#         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        
-#         # Create green semi-transparent mask
-#         overlay = img_rgb.copy()
-#         overlay[mask > 0] = [0, 255, 0]
-#         blended = cv2.addWeighted(img_rgb, 0.7, overlay, 0.3, 0)
-        
-#         plt.figure(figsize=(10, 6))
-#         plt.imshow(blended)
-#         ax = plt.gca()
-        
-#         # Draw the GT BBoxes in Red
-#         for box in bboxes:
-#             x1, y1, x2, y2 = box
-#             rect = plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=2)
-#             ax.add_patch(rect)
-            
-#         plt.axis('off')
-#         plt.title("SAM 2 Mask (Green) guided by GT BBox (Red)")
-#         plt.savefig(save_path, bbox_inches='tight', pad_inches=0)
-#         plt.close()
-
-
