@@ -8,10 +8,11 @@ from tqdm import tqdm
 from ultralytics import SAM
 
 class SAM2SegmentationInferencer:
-    def __init__(self, model_path="sam2_b.pt", device="cuda", area_threshold=400):
+    def __init__(self, model_path="sam2_b.pt", device="cuda", area_threshold=10000, w_threshold= 50):
         self.model = SAM(model_path)
         self.device = device
         self.area_threshold = area_threshold
+        self.w_threshold= w_threshold
 
     def run_inference(self, source_root, bbox_root, target_root, test_video_ids, scale=1.1):
         mask_out = Path(target_root) / "binary_masks"
@@ -57,9 +58,8 @@ class SAM2SegmentationInferencer:
                         x1, y1, x2, y2 = bbox
                         w, h = x2 - x1, y2 - y1
                         
-                        if w > 50 and h > 50 and w * h > 10000:
+                        if w > self.w_threshold and h > self.w_threshold and w * h > self.area_threshold:
                             # Scaling the bbox to a alarger scale  
-                            # Calculate center and new dimensions
                             cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
                             new_w, new_h = w * scale, h * scale
                             nx1 = max(0, int(cx - new_w / 2))

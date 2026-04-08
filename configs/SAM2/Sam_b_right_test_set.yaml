@@ -1,0 +1,14 @@
+# Model 
+model: sam2_b.pt
+
+# Data 
+images: data/SurgPose/SurgPose_for_HRNet/Extracted_right_test/extracted_frames  
+annotations: data/SurgPose/SurgPose_for_HRNet/Extracted_right_test/extracted_bboxes_kpts 
+split_file: data/SurgPose/SurgPose_for_HRNet/Extracted/video_split.yaml
+split_value: test
+# Output folder 
+output: data/Surgpose_for_segmentation/right_test_set
+
+# Bbox check
+area_threshold: 10000
+width_threshold: 50
