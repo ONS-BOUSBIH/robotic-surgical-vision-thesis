@@ -239,7 +239,6 @@ class Triangulator:
     def reconstruct_3d_sgbm(self, rect_l, rect_r, Q, rect_mask_l):
         """
         Dense reconstruction using SGBM.
-        Suggested for surgical tissue: Larger blocks and high speckle filtering.
         """
         # SGBM requires grayscale
         gray_l = cv2.cvtColor(rect_l, cv2.COLOR_BGR2GRAY)
@@ -276,6 +275,47 @@ class Triangulator:
         z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
         
         return point_cloud[z_filter], colors[z_filter], disparity
+
+    def reconstruct_3d_sgbm_masked(self, rect_l, rect_r, Q, rect_mask_l, rect_mask_r):
+            """
+            Dense reconstruction using SGBM and masking the tools first.
+            """
+            # SGBM requires grayscale
+            gray_l = cv2.cvtColor(rect_l, cv2.COLOR_BGR2GRAY)
+            gray_r = cv2.cvtColor(rect_r, cv2.COLOR_BGR2GRAY)
+            masked_l = gray_l* rect_mask_l
+            masked_r = gray_r* rect_mask_r
+            window_size = 7
+            stereo = cv2.StereoSGBM_create(
+                minDisparity=0,
+                numDisparities=192, 
+                blockSize=window_size,
+                P1=8 * 3 * window_size**2,
+                P2=32 * 3 * window_size**2,
+                disp12MaxDiff=1,
+                uniquenessRatio=10,
+                speckleWindowSize=100, # Removes noise
+                speckleRange=2,
+                mode=cv2.StereoSGBM_MODE_SGBM_3WAY
+            )
+
+        
+            # Disparity Calculation
+            disparity = stereo.compute(masked_l, masked_r).astype(np.float32) / 16.0
+
+            points_3d_full = cv2.reprojectImageTo3D(disparity, Q)
+
+            # Filter by your masks and valid depth
+            valid_mask =  (rect_mask_l > 0) &(disparity > 0) 
+            point_cloud = points_3d_full[valid_mask]
+            
+            # Pull colors from the rectified image for the cloud
+            colors = rect_l[valid_mask][:, ::-1]/255.0 
+
+            # Final filtering to remove infinite/extreme values 
+            z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
+            
+            return point_cloud[z_filter], colors[z_filter], disparity
 
 
 def run_triangulation_pipeline(
