@@ -240,32 +240,55 @@ class TriangulationVisualizer:
         else:
             plt.close()
     
-    def plot_3d_mask(self, points_3d, frame_name, show=False):
-        """
-        Plots the dense point cloud reconstructed from binary masks.
-        points_3d: (N, 3) array of reconstructed pixels.
-        """
-        fig = plt.figure(figsize=(10, 8))
-        ax = fig.add_subplot(111, projection='3d')
-        
-        if points_3d.size > 0:
+    def plot_3d_mask(self, points_3d, frame_name, colors=None, show=False):
+            """
+            Plots the dense point cloud with optional real-image colors.
+            points_3d: (N, 3) array
+            colors: (N, 3) array of RGB values normalized [0, 1]
+            """
+            fig = plt.figure(figsize=(10, 8))
+            ax = fig.add_subplot(111, projection='3d')
+            obs_points = np.zeros_like(points_3d)
+            obs_points[:, 0] = points_3d[:, 0]    # X stays X
+            obs_points[:, 1] = points_3d[:, 2]    # Y_plot = Depth
+            obs_points[:, 2] = -points_3d[:, 1]
             
-            ax.scatter(points_3d[:, 0], points_3d[:, 1], points_3d[:, 2], c=points_3d[:, 2], s=2)
+            if points_3d.size > 0:
+                # If no colors are provided, default to coloring by depth (Z)
+                if colors is None:
+                    c_data = points_3d[:, 2]
+                    cmap = 'viridis'
+                else:
+                    c_data = colors
+                    cmap = None
+                
+                ax.scatter(obs_points[:, 0], obs_points[:, 1], obs_points[:, 2], 
+                        c=c_data, cmap=cmap, s=1)
 
-        # Fix the aspect ratio so it doesn't look like a flattened mess
-        ax.set_box_aspect([1,1,1]) 
-        # Set explicit limits based on the tool (adjust values based on your data)
-        ax.set_zlim(0, 250)
-        ax.set_xlabel('X (mm)')
-        ax.set_ylabel('Y (mm)')
-        ax.set_zlabel('Z (mm)')
-        ax.set_title(f'3D Mask Reconstruction - {frame_name}')
-        
-        
-        
-        #plt.savefig(os.path.join(self.output_dir, f"mask_3d_{frame_name}.png"))
-        if show: plt.show()
-        else: plt.close()
+            # Fix the aspect ratio
+            ax.set_box_aspect([1, 1, 1]) 
+          
+            # Auto-center the view around the tool instead of fixed 0-250
+       
+            if points_3d.size > 0:
+                mid_x = np.median(obs_points[:, 0])
+                mid_y = np.median(obs_points[:, 1])
+                mid_z = np.median(obs_points[:, 2])
+                span = 50  
+                ax.set_xlim(mid_x - span, mid_x + span)
+                ax.set_ylim(mid_y - span, mid_y + span)
+                ax.set_zlim(mid_z - span, mid_z + span)
+
+            ax.set_xlabel('X (Left/Right) [mm]')
+            ax.set_ylabel('Z (Depth) [mm]') 
+            ax.set_zlabel('Y (Up/Down) [mm]')
+            ax.set_title(f'3D Mask Reconstruction - {frame_name}')
+            ax.view_init(elev=0, azim=-100)
+            
+            if show: 
+                plt.show()
+            else: 
+                plt.close()
 
 class SegmentationVisualizer:
     def __init__(self, alpha=0.4, cmap_gt='spring', cmap_pred='autumn'):

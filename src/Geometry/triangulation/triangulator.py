@@ -38,22 +38,17 @@ class Triangulator:
             P = K @ np.hstack([R, T])
             return P, K, D, R, T
 
+        
         self.P_l, self.K_l, self.D_l, R_l, T_l = get_cam_params("StereoLeft")
         self.P_r, self.K_r, self.D_r, R_r, T_r = get_cam_params("StereoRight")
-
-        # We need the R and T that takes a point from Left space to Right space.
-        # R_rel = R_r @ R_l.T
-        # T_rel = T_r - (R_rel @ T_l)
-        # If StereoLeft is already Identity/Zero, these formulas just return R_r and T_r.
-        R_rel = R_r @ R_l.T
-        T_rel = T_r - (R_rel @ T_l)
-
+        self.R=  R_r
+        self.T= T_r
         # Compute Essential Matrix using RELATIVE params
-        t = T_rel.flatten()
+        t = T_r.flatten()
         t_skew = np.array([[0, -t[2], t[1]],
                            [t[2], 0, -t[0]],
                            [-t[1], t[0], 0]])
-        E = t_skew @ R_rel
+        E = t_skew @ R_r
 
         # Compute Fundamental Matrix
         self.F = np.linalg.inv(self.K_r).T @ E @ np.linalg.inv(self.K_l)
@@ -163,50 +158,125 @@ class Triangulator:
         # Return (K, 2) if input was (K, 3), otherwise (N, K, 2)
         return projected_2d.squeeze(0) if is_single_tool else projected_2d
     
-    def reconstruct_mask_3d(self, mask_l, mask_r, sampling_rate=10):
-        """Reconstructs 3D tool shape with geometry constraints."""
-        y_l, x_l = np.where(mask_l > 0)
-        y_r, x_r = np.where(mask_r > 0)
-        if len(x_l) == 0 or len(x_r) == 0: return np.array([])
 
-        pts_r_all = np.column_stack((x_r, y_r))
-        points_3d = []
+    def get_rectification_maps(self, img_size, mode='conventional'):
+        """
+        Calculates maps for rectification.
+        'conventional': Full 3D rectification (Undistort + Rotate).
+        'pseudo': 2D translation only (Shift to align centers).
+        """
+        self.rect_mode = mode
+        h, w = img_size
 
-        for i in range(0, len(x_l), sampling_rate):
-            u_l, v_l = x_l[i], y_l[i]
-            pt_l = np.array([u_l, v_l, 1.0]).reshape(3, 1)
-            line = self.F @ pt_l
-            a, b, c = line.flatten()
-
-            # 1. Distance to epipolar line
-            denom = np.sqrt(a**2 + b**2)
-            dist = np.abs(a * pts_r_all[:, 0] + b * pts_r_all[:, 1] + c) / denom
+        if mode == 'conventional':
+            lkmat = np.array([
+                [self.K_l[0, 0], 0, self.K_l[0, 2]],
+                [0, self.K_l[1, 1], self.K_l[1, 2]],
+                [0, 0, 1]
+            ], dtype=np.float64)
             
-            # 2. DISPARITY CONSTRAINT: 
-            # In your data, the Right image tool is shifted left. 
-            # So Right_x MUST be less than Left_x.
-            mask_matches = (dist < 1.2) & (pts_r_all[:, 0] < u_l)
-            possible = pts_r_all[mask_matches]
+            rkmat = np.array([
+                [self.K_r[0, 0], 0, self.K_r[0, 2]],
+                [0, self.K_r[1, 1], self.K_r[1, 2]],
+                [0, 0, 1]
+            ], dtype=np.float64)
 
-            if len(possible) > 0:
-                # 3. Pick match closest to the same Y coordinate
-                best_match = possible[np.argmin(np.abs(possible[:, 1] - v_l))]
-                u_r, v_r = best_match
+            # Perform Stereo Rectify with alpha=0 (removes black borders)
+            r1, r2, p1, p2, q, roi1, roi2 = cv2.stereoRectify(
+                cameraMatrix1=lkmat, 
+                distCoeffs1=self.D_l, 
+                cameraMatrix2=rkmat, 
+                distCoeffs2=self.D_r, 
+                imageSize=(w, h), 
+                R=self.R, 
+                T=self.T.reshape(3, 1),
+                alpha=0 
+            )
 
-                # 4. Triangulate
-                p_l_undist = cv2.undistortPoints(np.array([[[u_l, v_l]]], dtype=np.float32), 
-                                                 self.K_l, self.D_l, P=self.K_l)
-                p_r_undist = cv2.undistortPoints(np.array([[[u_r, v_r]]], dtype=np.float32), 
-                                                 self.K_r, self.D_r, P=self.K_r)
+            # Generate Undistort and Rectify Maps
+            lmap1, lmap2 = cv2.initUndistortRectifyMap(
+                lkmat, self.D_l, r1, p1, (w, h), cv2.CV_32FC1
+            )
+            rmap1, rmap2 = cv2.initUndistortRectifyMap(
+                rkmat, self.D_r, r2, p2, (w, h), cv2.CV_32FC1
+            )
 
-                X_h = cv2.triangulatePoints(self.P_l, self.P_r, p_l_undist.T, p_r_undist.T)
-                X_3d = (X_h[:3] / X_h[3]).T
-                
-                # 5. DEPTH FILTER: Surgical tools are usually 50-250mm from the lens
-                if 20 < X_3d[0, 2] < 280:
-                    points_3d.append(X_3d)
+            return lmap1, lmap2, rmap1, rmap2, q
 
-        return np.array(points_3d).reshape(-1, 3) if points_3d else np.array([])
+        elif mode == 'pseudo':
+            # Calculate the 2D shift (dx, dy) to align principal points
+            dx = self.K_l[0, 2] - self.K_r[0, 2]
+            dy = self.K_l[1, 2] - self.K_r[1, 2]
+            
+            # Create affine translation matrix
+            # Shifting the right image to match the left
+            pseudo_matrix = np.array([
+                [1, 0, dx], 
+                [0, 1, dy]
+            ], dtype=np.float32)
+            
+            # Return dummy values for maps and a basic Q matrix
+            return None, None, pseudo_matrix, None, np.eye(4)
+    
+    def rectify_images(self, img_l, img_r, lmap1, lmap2, r_map1_or_mat, r_map2, rect_mode="conventional"):
+        """
+        Applies the rectification.
+        In 'conventional' mode: r_map1_or_mat is the right image x map.
+        In 'pseudo' mode: r_map1_or_mat is the 2D translation matrix.
+        """
+        if rect_mode == 'conventional':
+            rect_l = cv2.remap(img_l, lmap1, lmap2, cv2.INTER_LINEAR)
+            rect_r = cv2.remap(img_r, r_map1_or_mat, r_map2, cv2.INTER_LINEAR)
+            return rect_l, rect_r
+
+        elif rect_mode == 'pseudo':
+            h, w = img_l.shape[:2]
+            # Left image stays raw, right image is shifted
+            rect_l = img_l.copy()
+            rect_r = cv2.warpAffine(img_r, r_map1_or_mat, (w, h))
+            return rect_l, rect_r
+    
+    def reconstruct_3d_sgbm(self, rect_l, rect_r, Q, rect_mask_l):
+        """
+        Dense reconstruction using SGBM.
+        Suggested for surgical tissue: Larger blocks and high speckle filtering.
+        """
+        # SGBM requires grayscale
+        gray_l = cv2.cvtColor(rect_l, cv2.COLOR_BGR2GRAY)
+        gray_r = cv2.cvtColor(rect_r, cv2.COLOR_BGR2GRAY)
+
+        window_size = 7
+        stereo = cv2.StereoSGBM_create(
+            minDisparity=0,
+            numDisparities=192, 
+            blockSize=window_size,
+            P1=8 * 3 * window_size**2,
+            P2=32 * 3 * window_size**2,
+            disp12MaxDiff=1,
+            uniquenessRatio=10,
+            speckleWindowSize=100, # Removes noise
+            speckleRange=2,
+            mode=cv2.StereoSGBM_MODE_SGBM_3WAY
+        )
+
+       
+        # Disparity Calculation
+        disparity = stereo.compute(gray_l, gray_r).astype(np.float32) / 16.0
+
+        points_3d_full = cv2.reprojectImageTo3D(disparity, Q)
+
+        # Filter by your masks and valid depth
+        valid_mask =  (rect_mask_l > 0) &(disparity > 0) 
+        point_cloud = points_3d_full[valid_mask]
+        
+        # Pull colors from the rectified image for the cloud
+        colors = rect_l[valid_mask][:, ::-1]/255.0 
+
+        # Final filtering to remove infinite/extreme values 
+        z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
+        
+        return point_cloud[z_filter], colors[z_filter], disparity
+
 
 def run_triangulation_pipeline(
     inferencer, 
