@@ -6,6 +6,8 @@ from src.Keypoints_detection.evaluation.evaluation_utils import get_gt_from_hrne
 import os
 import numpy as np
 import seaborn as sns
+import plotly.graph_objects as go
+import numpy as np
 
 
 class TrainingVisualizer:
@@ -240,7 +242,7 @@ class TriangulationVisualizer:
         else:
             plt.close()
     
-    def plot_3d_mask(self, points_3d, frame_name, colors=None, show=False):
+    def plot_3d_mask(self, points_3d, frame_name, colors=None, show=False, elevation=10, azimuth=-110):
             """
             Plots the dense point cloud with optional real-image colors.
             points_3d: (N, 3) array
@@ -283,12 +285,53 @@ class TriangulationVisualizer:
             ax.set_ylabel('Z (Depth) [mm]') 
             ax.set_zlabel('Y (Up/Down) [mm]')
             ax.set_title(f'3D Mask Reconstruction - {frame_name}')
-            ax.view_init(elev=0, azim=-100)
+            ax.view_init(elev=elevation, azim=azimuth)
             
             if show: 
                 plt.show()
             else: 
                 plt.close()
+    
+    def plot_3d_plotly(self, points_3d, colors, frame_name):
+        """
+        Creates an interactive 3D plot using Plotly.
+        points_3d: (N, 3) array 
+        colors: (N, 3) array [0, 1] RGB
+        """
+        # Convert normalized [0,1] colors to CSS RGB strings for Plotly
+        rgb_colors = [f'rgb({int(c[0]*255)}, {int(c[1]*255)}, {int(c[2]*255)})' for c in colors]
+        obs_points = np.zeros_like(points_3d)
+        obs_points[:, 0] = points_3d[:, 0]    # X stays X
+        obs_points[:, 1] = points_3d[:, 2]    # Y_plot = Depth
+        obs_points[:, 2] = -points_3d[:, 1]
+        
+        fig = go.Figure(data=[go.Scatter3d(
+            x=obs_points[:, 0],
+            y=obs_points[:, 1],
+            z=obs_points[:, 2],
+            mode='markers',
+            marker=dict(
+                size=1.5,
+                color=rgb_colors,
+                opacity=0.8
+            )
+        )])
+
+        # Setup the layout to match metric proportions
+        fig.update_layout(
+            title=f"3D Tool Reconstruction: {frame_name}",
+            scene=dict(
+                xaxis_title='X (Left/Right) [mm]',
+                yaxis_title='Z (Depth) [mm]',
+                zaxis_title='Y (Up/Down) [mm]',
+                # This ensures 1mm looks the same on all axes (no warping)
+                aspectmode='data' 
+            ),
+            margin=dict(l=0, r=0, b=0, t=40)
+        )
+
+        fig.show()
+
 
 class SegmentationVisualizer:
     def __init__(self, alpha=0.4, cmap_gt='spring', cmap_pred='autumn'):
