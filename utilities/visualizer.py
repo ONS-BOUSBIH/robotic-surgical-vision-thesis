@@ -8,6 +8,7 @@ import numpy as np
 import seaborn as sns
 import plotly.graph_objects as go
 import numpy as np
+import plotly.io as pio
 
 
 class TrainingVisualizer:
@@ -316,7 +317,7 @@ class TriangulationVisualizer:
                 opacity=0.8
             )
         )])
-
+        pio.renderers.default = "browser"
         # Setup the layout to match metric proportions
         fig.update_layout(
             title=f"3D Tool Reconstruction: {frame_name}",

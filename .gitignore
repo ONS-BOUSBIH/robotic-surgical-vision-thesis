@@ -52,3 +52,4 @@ nnUNetPlans_*/
 **/nnunet_results/*
 **/nnunet_preprocessed/*
 *.txt 
+*.html
