@@ -1,0 +1,18 @@
+# Model 
+model: external/RAFT-Stereo/models/raftstereo-middlebury.pth
+
+# Data 
+left_img_root: data/SurgPose/SurgPose_for_HRNet/Extracted/extracted_frames  
+right_img_root: data/SurgPose/SurgPose_for_HRNet/Extracted_right_test/extracted_frames 
+zip_root :  data/SurgPose/SurgPose_for_HRNet
+split_file: data/SurgPose/SurgPose_for_HRNet/Extracted/video_split.yaml
+split_value: test
+h: 986
+w: 1400
+# Output folder 
+output: results/Stereo_matching/Surgpose_test_disparity_maps
+
+
+
+
+
