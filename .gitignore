@@ -53,3 +53,6 @@ nnUNetPlans_*/
 **/nnunet_preprocessed/*
 *.txt 
 *.html
+*.npy
+#external used code
+external/
