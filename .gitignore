@@ -54,5 +54,7 @@ nnUNetPlans_*/
 *.txt 
 *.html
 *.npy
+*.npz
+
 #external used code
 external/
