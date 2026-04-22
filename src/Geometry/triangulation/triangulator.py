@@ -314,9 +314,8 @@ class Triangulator:
             
             return point_cloud[z_filter], colors[z_filter], disparity
 
-    def project_disparity_to_3d(self, disparity_path, q_matrix, rect_l, rect_mask_l):
+    def project_disparity_to_3d(self, disparity, q_matrix, rect_l, rect_mask_l):
         
-        disparity = np.load(disparity_path)
         disparity[rect_mask_l == 0] = 0
         points_3d = cv2.reprojectImageTo3D(disparity, q_matrix)
         valid_mask =  (rect_mask_l > 0) &(disparity > 0) 
