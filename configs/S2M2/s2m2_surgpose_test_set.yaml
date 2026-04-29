@@ -1,6 +1,8 @@
 # Model 
-model: weights/original_weights/RAFTstereo/models/raftstereo-middlebury.pth
-
+pretrained_folder: /srv/homes/onbo10/thesis_main/weights/original_weights/S2M2
+model_type: S
+num_refine: 3
+allow_negative: False
 # Data 
 left_img_root: data/SurgPose/SurgPose_for_HRNet/Extracted/extracted_frames  
 right_img_root: data/SurgPose/SurgPose_for_HRNet/Extracted_right_test/extracted_frames 
@@ -11,8 +13,9 @@ h: 986
 w: 1400
 save_visuals : False
 lrc_threshold: 1 
+resized: True
 # Output folder 
-output: results/Stereo_matching/Surgpose_test_disparity_maps/raftstereo
+output: results/Stereo_matching/Surgpose_test_disparity_maps/s2m2
 
 
 

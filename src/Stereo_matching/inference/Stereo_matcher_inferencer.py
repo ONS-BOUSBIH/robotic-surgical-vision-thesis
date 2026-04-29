@@ -8,6 +8,7 @@ from pathlib import Path
 from tqdm import tqdm
 from datetime import datetime
 from src.Geometry.triangulation.triangulator import Triangulator
+from skimage.metrics import structural_similarity as ssim
 
 class StereoMatcherInferencer:
     def __init__(self, device='cuda'):
@@ -41,6 +42,24 @@ class StereoMatcherInferencer:
         diff = np.abs(disp_l - projected_disp_r)
         mask = (diff < threshold).astype(np.float32)
         return mask, diff
+  
+    def compute_reprojection_ssim(self, img_l, img_r, disp_l):
+        
+        #Warp the Right image to the Left perspective using disp_l
+        h, w = disp_l.shape
+        u_coords = np.tile(np.arange(w), (h, 1))
+        v_coords = np.tile(np.arange(h), (w, 1)).T.astype(np.float32)
+        
+        target_u = np.clip(u_coords - disp_l, 0, w - 1).astype(np.float32)
+        
+        # Warp img_r
+        warped_r = cv2.remap(img_r, target_u, v_coords, cv2.INTER_LINEAR)
+        
+        # Calculate SSIM between Original Left and Warped Right
+        # score, diff_map = ssim(img_l, warped_r, full=True, multichannel=True)
+        score = ssim(img_l, warped_r, channel_axis=2, data_range=255)
+        
+        return score
 
     def save_output(self, disp, lrc_error, lrc_mask, output_dir, file_stem, save_png=False):
         base_path = Path(output_dir)
@@ -59,12 +78,12 @@ class StereoMatcherInferencer:
             png_folder.mkdir(parents=True, exist_ok=True)
             plt.imsave(png_folder / f"{file_stem}_disp.png", disp, cmap='jet')
 
-    def run_batch_inference(self, left_img_root, right_img_root, zip_root, output_dir, video_ids, img_shape, lrc_threshold=1, save_visuals=False):
+    def run_batch_inference(self, left_img_root, right_img_root, zip_root, output_dir, video_ids, img_shape, lrc_threshold=1, save_visuals=False,resized=False):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
         csv_path = output_path / f"lrc_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        csv_headers = ['video_id', 'frame', 'lrc_mean', 'lrc_std', 'lrc_max', 'lrc_min', 'consistency_rate']
+        csv_headers = ['video_id', 'frame', 'lrc_mean', 'lrc_std', 'lrc_max', 'lrc_min', 'consistency_rate','ssim_score','lrc_median']
         
         with open(csv_path, mode='w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=csv_headers)
@@ -88,8 +107,15 @@ class StereoMatcherInferencer:
                 rect_l, rect_r = triangulator.rectify_images(img_l, img_r, lmap1, lmap2, rmap1, rmap2, "conventional")
                 
                 disp_l, disp_r = self.get_bidirectional_disparity(rect_l, rect_r)
-                lrc_mask, lrc_error = self.compute_lrc_mask(disp_l, disp_r, threshold=lrc_threshold)
-                
+
+                if resized:
+                    h, w = disp_l.shape
+                    img_h = (h // 32) * 32
+                    img_w = (w // 32) * 32
+                    lrc_mask, lrc_error = self.compute_lrc_mask(disp_l[:img_h, :img_w], disp_r[:img_h, :img_w], threshold=lrc_threshold)
+                else:
+                    lrc_mask, lrc_error = self.compute_lrc_mask(disp_l, disp_r, threshold=lrc_threshold)
+                ssim_score = self.compute_reprojection_ssim(rect_l,rect_r,disp_l)
                 # Logging and Saving
                 stats = {
                     'video_id': vid,
@@ -98,7 +124,9 @@ class StereoMatcherInferencer:
                     'lrc_std': round(float(np.std(lrc_error)), 4),
                     'lrc_max': round(float(np.max(lrc_error)), 4),
                     'lrc_min': round(float(np.min(lrc_error)), 4),
-                    'consistency_rate': round(float(np.mean(lrc_mask) * 100), 2)
+                    'consistency_rate': round(float(np.mean(lrc_mask) * 100), 2),
+                    'ssim_score': round(ssim_score, 4),
+                    'lrc_median': round(float(np.median(lrc_error)), 4)
                 }
                 
                 with open(csv_path, mode='a', newline='') as f:
