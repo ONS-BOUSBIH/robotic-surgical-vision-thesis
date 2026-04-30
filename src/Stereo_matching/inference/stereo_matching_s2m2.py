@@ -23,7 +23,7 @@ def main():
     vids= splits[config_data['split_value']]
 
     inferencer = S2M2Inferencer(config_data['pretrained_folder'], model_type=config_data['model_type'],num_refine= config_data['num_refine'], allow_negative= config_data['allow_negative'],device='cuda')
-    inferencer.run_batch_inference(left_img_root=left_folder, right_img_root=right_folder, zip_root=zip_root,output_dir=output_dir, video_ids=vids, img_shape= (config_data['h'],config_data['w']), lrc_threshold= config_data['lrc_threshold'],save_visuals=config_data['save_visuals'],resized=config_data['resized'])
+    inferencer.run_batch_inference(left_img_root=left_folder, right_img_root=right_folder, zip_root=zip_root,output_dir=output_dir, video_ids=vids, img_shape= (config_data['h'],config_data['w']), lrc_threshold= config_data['lrc_threshold'],save_visuals=config_data['save_visuals'])
 
 if __name__=="__main__":
     main()

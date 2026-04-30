@@ -13,7 +13,7 @@ h: 986
 w: 1400
 save_visuals : False
 lrc_threshold: 1 
-resized: True
+
 # Output folder 
 output: results/Stereo_matching/Surgpose_test_disparity_maps/s2m2
 

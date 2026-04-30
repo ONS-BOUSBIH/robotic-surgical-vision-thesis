@@ -78,7 +78,7 @@ class StereoMatcherInferencer:
             png_folder.mkdir(parents=True, exist_ok=True)
             plt.imsave(png_folder / f"{file_stem}_disp.png", disp, cmap='jet')
 
-    def run_batch_inference(self, left_img_root, right_img_root, zip_root, output_dir, video_ids, img_shape, lrc_threshold=1, save_visuals=False,resized=False):
+    def run_batch_inference(self, left_img_root, right_img_root, zip_root, output_dir, video_ids, img_shape, lrc_threshold=1, save_visuals=False):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
@@ -107,14 +107,7 @@ class StereoMatcherInferencer:
                 rect_l, rect_r = triangulator.rectify_images(img_l, img_r, lmap1, lmap2, rmap1, rmap2, "conventional")
                 
                 disp_l, disp_r = self.get_bidirectional_disparity(rect_l, rect_r)
-
-                if resized:
-                    h, w = disp_l.shape
-                    img_h = (h // 32) * 32
-                    img_w = (w // 32) * 32
-                    lrc_mask, lrc_error = self.compute_lrc_mask(disp_l[:img_h, :img_w], disp_r[:img_h, :img_w], threshold=lrc_threshold)
-                else:
-                    lrc_mask, lrc_error = self.compute_lrc_mask(disp_l, disp_r, threshold=lrc_threshold)
+                lrc_mask, lrc_error = self.compute_lrc_mask(disp_l, disp_r, threshold=lrc_threshold)
                 ssim_score = self.compute_reprojection_ssim(rect_l,rect_r,disp_l)
                 # Logging and Saving
                 stats = {
