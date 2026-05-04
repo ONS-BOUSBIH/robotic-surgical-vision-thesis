@@ -60,8 +60,8 @@ class TriangulationVisualizer:
         img_l = cv2.imread(img_l_path)
         img_r = cv2.imread(img_r_path)
         
-        # Extract data (frame 0 since we only passed one pair)
-        pts_3d = results['tri_3d'] # List [Tool0_pts, Tool1_pts]
+        # Extract data 
+        pts_3d = results['tri_3d'] 
         preds_l = results['preds_l']
         preds_r = results['preds_r']
 
@@ -224,54 +224,3 @@ class TriangulationVisualizer:
         fig.show()
 
 
-class SegmentationVisualizer:
-    def __init__(self, alpha=0.4, cmap_gt='spring', cmap_pred='autumn'):
-        """
-        visualizer for segmentation tasks.
-        """
-        self.alpha = alpha
-        self.cmap_gt = cmap_gt
-        self.cmap_pred = cmap_pred
-
-    def _overlay_mask(self, ax, image, mask, cmap, title):
-        """Internal helper to mask background and overlay on axis."""
-        ax.imshow(image)
-        if mask is not None:
-            # Mask the background to make it transparent
-            masked_data = np.ma.masked_where(mask == 0, mask)
-            ax.imshow(masked_data, cmap=cmap, alpha=self.alpha)
-        ax.set_title(title, fontsize=10)
-        ax.axis('off')
-
-    def plot_comparison(self, image, gt_mask, pred_mask, title_base="Case", metrics=None, save_path=None, display=True):
-        """
-        Creates a 1x2 or 1x3 plot depending on provided masks.
-        metrics: dict of {metric_name: value} to display in title.
-        """
-        num_plots = 2 if gt_mask is not None and pred_mask is not None else 1
-        fig, axes = plt.subplots(1, num_plots, figsize=(9 * num_plots, 6))
-        
-        # If only one plot, axes isn't a list
-        if num_plots == 1: axes = [axes]
-
-        # Formatting metrics string
-        metrics_str = " | ".join([f"{k}: {v:.4f}" for k, v in metrics.items()]) if metrics else ""
-
-        # GT Overlay
-        if gt_mask is not None:
-            self._overlay_mask(axes[0], image, gt_mask, self.cmap_gt, f"{title_base}\nGround Truth")
-
-        # Pred Overlay
-        if pred_mask is not None:
-            idx = 1 if gt_mask is not None else 0
-            self._overlay_mask(axes[idx], image, pred_mask, self.cmap_pred, f"Prediction\n{metrics_str}")
-
-        plt.tight_layout()
-        
-        if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        if display:
-            plt.show()
-        else:
-            plt.draw()
-        plt.close(fig)
