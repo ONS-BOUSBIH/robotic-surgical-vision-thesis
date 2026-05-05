@@ -71,14 +71,14 @@ class TriangulationVisualizer:
         for i, (side_name, img, preds) in enumerate(sides):
             axes[i].imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             
-            # Loop through tools (max_tools)
+            
             for t_idx in range(len(pts_3d)):
-                # Get points for this specific tool at frame 0
+                
                 tool_3d = pts_3d[t_idx] 
                 tool_2d_raw = preds[0, t_idx] 
 
                 if not np.isnan(tool_3d).any():
-                    # Use your triangulator's projection method
+                    
                     proj_2d = triangulator.project_points(np.array(tool_3d).squeeze(), side=side_name)
                     
                     #Plot Detected 
@@ -161,7 +161,7 @@ class TriangulationVisualizer:
             # Fix the aspect ratio
             ax.set_box_aspect([1, 1, 1]) 
           
-            # Auto-center the view around the tool instead of fixed 0-250
+            # Center the view around the tool 
        
             if points_3d.size > 0:
                 mid_x = np.median(obs_points[:, 0])
@@ -215,7 +215,7 @@ class TriangulationVisualizer:
                 xaxis_title='X (Left/Right) [mm]',
                 yaxis_title='Z (Depth) [mm]',
                 zaxis_title='Y (Up/Down) [mm]',
-                # This ensures 1mm looks the same on all axes (no warping)
+                # This ensures 1mm looks the same on all axes 
                 aspectmode='data' 
             ),
             margin=dict(l=0, r=0, b=0, t=40)

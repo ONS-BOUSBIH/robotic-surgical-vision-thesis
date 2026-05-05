@@ -2,6 +2,7 @@ import cv2
 import configparser
 import numpy as np
 import zipfile
+import open3d as o3d
 
 
 class Triangulator:
@@ -232,87 +233,6 @@ class Triangulator:
             rect_l = img_l.copy()
             rect_r = cv2.warpAffine(img_r, r_map1_or_mat, (w, h))
             return rect_l, rect_r
-    
-    def reconstruct_3d_sgbm(self, rect_l, rect_r, Q, rect_mask_l):
-        """
-        Dense reconstruction using SGBM.
-        """
-        # SGBM requires grayscale
-        gray_l = cv2.cvtColor(rect_l, cv2.COLOR_BGR2GRAY)
-        gray_r = cv2.cvtColor(rect_r, cv2.COLOR_BGR2GRAY)
-
-        window_size = 7
-        stereo = cv2.StereoSGBM_create(
-            minDisparity=0,
-            numDisparities=192, 
-            blockSize=window_size,
-            P1=8 * 3 * window_size**2,
-            P2=32 * 3 * window_size**2,
-            disp12MaxDiff=1,
-            uniquenessRatio=10,
-            speckleWindowSize=100, # Removes noise
-            speckleRange=2,
-            mode=cv2.StereoSGBM_MODE_SGBM_3WAY
-        )
-
-       
-        # Disparity Calculation
-        disparity = stereo.compute(gray_l, gray_r).astype(np.float32) / 16.0
-
-        points_3d_full = cv2.reprojectImageTo3D(disparity, Q)
-
-        # Filter by your masks and valid depth
-        valid_mask =  (rect_mask_l > 0) &(disparity > 0) 
-        point_cloud = points_3d_full[valid_mask]
-        
-        # Pull colors from the rectified image for the cloud
-        colors = rect_l[valid_mask][:, ::-1]/255.0 
-
-        # Final filtering to remove infinite/extreme values 
-        z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
-        
-        return point_cloud[z_filter], colors[z_filter], disparity
-
-    def reconstruct_3d_sgbm_masked(self, rect_l, rect_r, Q, rect_mask_l, rect_mask_r):
-            """
-            Dense reconstruction using SGBM and masking the tools first.
-            """
-            # SGBM requires grayscale
-            gray_l = cv2.cvtColor(rect_l, cv2.COLOR_BGR2GRAY)
-            gray_r = cv2.cvtColor(rect_r, cv2.COLOR_BGR2GRAY)
-            masked_l = gray_l* rect_mask_l
-            masked_r = gray_r* rect_mask_r
-            window_size = 7
-            stereo = cv2.StereoSGBM_create(
-                minDisparity=0,
-                numDisparities=192, 
-                blockSize=window_size,
-                P1=8 * 3 * window_size**2,
-                P2=32 * 3 * window_size**2,
-                disp12MaxDiff=1,
-                uniquenessRatio=10,
-                speckleWindowSize=100, # Removes noise
-                speckleRange=2,
-                mode=cv2.StereoSGBM_MODE_SGBM_3WAY
-            )
-
-        
-            # Disparity Calculation
-            disparity = stereo.compute(masked_l, masked_r).astype(np.float32) / 16.0
-
-            points_3d_full = cv2.reprojectImageTo3D(disparity, Q)
-
-            # Filter by your masks and valid depth
-            valid_mask =  (rect_mask_l > 0) &(disparity > 0) 
-            point_cloud = points_3d_full[valid_mask]
-            
-            # Pull colors from the rectified image for the cloud
-            colors = rect_l[valid_mask][:, ::-1]/255.0 
-
-            # Final filtering to remove infinite/extreme values 
-            z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
-            
-            return point_cloud[z_filter], colors[z_filter], disparity
 
     def project_disparity_to_3d(self, disparity, q_matrix, rect_l, rect_mask_l):
         
@@ -328,6 +248,52 @@ class Triangulator:
         z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
         
         return point_cloud[z_filter], colors[z_filter], disparity
+    
+    def DBSCAN_cluster_filtering(self, points_np, eps=5, min_points=20, top_n=2):
+        """
+        Uses DBSCAN clustering algorithm and removes 3D outlier points clusters by keeping the largest 2 clusters (for 2 surgical tools).
+        Input: points_np (N, 3) numpy array
+        Output: filtering mask (N,) numpy array
+        """
+        if points_np.shape[0] == 0:
+            return points_np
+
+        #Convert NumPy array to Open3D PointCloud object
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points_np)
+
+        #Perform DBSCAN clustering
+        labels = np.array(pcd.cluster_dbscan(eps=eps, min_points=min_points))
+
+        if len(labels) == 0 or np.all(labels == -1):
+            return np.array([]) # Return empty if everything is noise
+
+        #Find the largest clusters
+        unique_labels, counts = np.unique(labels[labels >= 0], return_counts=True)
+        
+        # Sort by count descending and take top_n
+        top_cluster_indices = unique_labels[np.argsort(counts)[::-1][:top_n]]
+        
+        #Create mask for points belonging to the cluster
+        mask = np.isin(labels, top_cluster_indices)
+        
+        return mask
+    
+    def adaptive_z_filtering(self, points_np, percentile=97):
+        """
+        Isolates foreground objects by generating a boolean mask for points within a dynamic depth threshold calculated via percentiles.
+        Input: points_np (np.ndarray): (N, 3) array of point cloud coordinates (X, Y, Z).
+               percentile (float): The percentage of closest points to retain (0-100).
+        Output: np.ndarray: A boolean mask where True indicates points that passed the depth filter.
+        """
+        # Assuming teh tools are the closest objects (True for Surgpose)
+        z_values = points_np[:, 2]
+        # Calculate a threshold that keeps the closest X% of points
+        z_threshold = np.percentile(z_values, percentile)
+        mask = z_values <= z_threshold
+        return mask
+
+    
 
 
 
