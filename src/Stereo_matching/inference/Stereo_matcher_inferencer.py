@@ -56,7 +56,6 @@ class StereoMatcherInferencer:
         warped_r = cv2.remap(img_r, target_u, v_coords, cv2.INTER_LINEAR)
         
         # Calculate SSIM between Original Left and Warped Right
-        # score, diff_map = ssim(img_l, warped_r, full=True, multichannel=True)
         score = ssim(img_l, warped_r, channel_axis=2, data_range=255)
         
         return score
@@ -76,7 +75,7 @@ class StereoMatcherInferencer:
         if save_png:
             png_folder = base_path / "plots_disparities"
             png_folder.mkdir(parents=True, exist_ok=True)
-            plt.imsave(png_folder / f"{file_stem}_disp.png", disp, cmap='jet')
+            plt.imsave(png_folder / f"{file_stem}_disp.png", disp, cmap='viridis')
 
     def run_batch_inference(self, left_img_root, right_img_root, zip_root, output_dir, video_ids, img_shape, lrc_threshold=1, save_visuals=False):
         output_path = Path(output_dir)
@@ -130,3 +129,20 @@ class StereoMatcherInferencer:
                 
                 if self.device == 'cuda':
                     torch.cuda.empty_cache()
+    
+    def run_inference(self, left_img_path, right_img_path, zip_path, output_dir, img_shape, save_png=False):
+       
+        triangulator = Triangulator()
+        triangulator.load_calibration(os.path.join(zip_path))
+            
+        lmap1, lmap2, rmap1, rmap2, _ = triangulator.get_rectification_maps(img_size=img_shape, mode="conventional")
+        img_l = cv2.imread(left_img_path)
+        img_r = cv2.imread(right_img_path)
+        rect_l, rect_r = triangulator.rectify_images(img_l, img_r, lmap1, lmap2, rmap1, rmap2, "conventional")
+                
+        disp_l= self.get_disparity(rect_l, rect_r)    
+        file_stem= os.path.basename(left_img_path).replace('left','').split('.')[0]
+        if save_png:
+            assert not output_dir == None , "Give a saving location"
+            plt.imsave(output_dir / f"{file_stem}_disp.png", disp_l, cmap='viridis')
+        return disp_l

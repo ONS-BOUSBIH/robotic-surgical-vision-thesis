@@ -45,7 +45,7 @@ class RAFTSTEREOInferencer(StereoMatcherInferencer):
         img_l = rect_l[:, :, ::-1].copy()
         img_r = rect_r[:, :, ::-1].copy()
 
-        # Convert to Tensors [1, 3, H, W] (Scaling 0-255 as per demo.py)
+        # Convert to Tensors [1, 3, H, W] (Scaling 0-255)
         t_l = torch.from_numpy(img_l).permute(2, 0, 1).float()[None].to(self.device)
         t_r = torch.from_numpy(img_r).permute(2, 0, 1).float()[None].to(self.device)
 

@@ -236,7 +236,7 @@ class Triangulator:
 
     def project_disparity_to_3d(self, disparity, q_matrix, rect_l, rect_mask_l):
         
-        disparity[rect_mask_l == 0] = 0
+        #disparity[rect_mask_l == 0] = 0
         points_3d = cv2.reprojectImageTo3D(disparity, q_matrix)
         valid_mask =  (rect_mask_l > 0) &(disparity > 0) 
         point_cloud = points_3d[valid_mask]
