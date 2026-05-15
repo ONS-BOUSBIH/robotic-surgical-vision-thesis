@@ -1,0 +1,15 @@
+
+# Data 
+disparity_root: results/Stereo_matching/Surgpose_test_disparity_maps/s2m2
+file_path_structure: '**/compressed_data/*.npz'
+h: 986
+w: 1400
+csv_path: results/Stereo_matching/Surgpose_test_disparity_maps/s2m2/s2m2_disparity_segmentation_masks_eval_postprocessing_both_masks.csv
+postprocessing : True
+
+
+
+
+
+
+

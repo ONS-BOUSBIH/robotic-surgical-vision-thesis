@@ -1,0 +1,14 @@
+
+# Data 
+disparity_root: results/Stereo_matching/Surgpose_test_disparity_maps/raftstereo
+file_path_structure: '**/compressed_data/*.npz'
+h: 986
+w: 1400
+csv_path: results/Stereo_matching/Surgpose_test_disparity_maps/raftstereo/raftstereo_disparity_segmentation_masks_eval_postprocessing_both_masks.csv
+postprocessing : True
+
+
+
+
+
+
