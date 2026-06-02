@@ -4,6 +4,7 @@ import glob
 import yaml 
 import random
 import os
+import json
 
 def get_first_digit(string):
     match = re.search(r"\d+", string)
@@ -131,3 +132,18 @@ def get_failure_cases(results, error_threshold=15.0, top_k=5):
     failures = sorted(failures, key=lambda x: x['error'], reverse=True)[:top_k]
    
     return failures
+
+def get_frame_data(json_path, video_id, frame_filename):
+    """
+    Retrieves the 3D data for a specific video and frame from the json keypoints logs file.
+    Example: video_id='000004', frame_filename='vid_000004_left_frame_000012'
+    """
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    
+    # Search for the entry that matches both the video ID and the frame filename
+    for entry in data:
+        if entry['video_id'] == video_id and entry['frame_id_str'] == frame_filename:
+            return entry
+            
+    return None

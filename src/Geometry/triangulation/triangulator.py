@@ -2,7 +2,7 @@ import cv2
 import configparser
 import numpy as np
 import zipfile
-import open3d as o3d
+
 
 
 class Triangulator:
@@ -74,6 +74,30 @@ class Triangulator:
         
         return undistorted.reshape(original_shape)
 
+    def rectify_undistort_points(self, p, r, pts, side=''):
+        """
+        Maps raw keypoints into the rectified 3D camera coordinate space.
+
+        Removes lens distortion, applies rectification rotation (R), and 
+        re-projects points onto the rectified image plane defined by P1.
+
+        Args:
+            p: Rectified projection matrix (3x4).
+            r: Rectification rotation matrix (3x3).
+            pts: Raw keypoints of shape (N, K, 2).
+
+        Returns:
+            Reshaped (1, N*K, 2) array of rectified keypoints.
+        """
+        assert side in ['left','right'], ' Wrong camera chosen , choose from "left"or "right" '
+        if side =='left':
+            p_rect_raw = cv2.undistortPoints(pts, self.K_l, self.D_l, R=r, P=p)
+        elif side=='right':
+            p_rect_raw = cv2.undistortPoints(pts, self.K_r, self.D_r, R=r, P=p)
+        
+        p_rect = p_rect_raw.reshape(1, -1, 2)
+        return p_rect
+    
     def triangulate(self, pts_l, pts_r, masks_l, masks_r):
         """
         pts_l, pts_r: (N, K, 2) undistorted coordinates
@@ -89,6 +113,25 @@ class Triangulator:
                 pl_valid = pts_l[i][valid_mask].T
                 pr_valid = pts_r[i][valid_mask].T
                 X_h = cv2.triangulatePoints(self.P_l, self.P_r, pl_valid, pr_valid)
+                pts_3d[i][valid_mask] = (X_h[:3] / X_h[3]).T
+        
+        return pts_3d
+    
+    def triangulate_rectified_kpts(self, pts_l, pts_r, masks_l, masks_r, p_l, p_r):
+        """
+        pts_l, pts_r: (N, K, 2) undistorted coordinates
+        masks_l, masks_r: (N, K) binary visibility masks
+        """
+        N, K, _ = pts_l.shape
+        pts_3d = np.full((N, K, 3), np.nan)
+
+        for i in range(N):
+            # Only triangulate points visible in BOTH cameras
+            valid_mask = (masks_l[i] > 0) & (masks_r[i] > 0)
+            if np.any(valid_mask):
+                pts_l_valid = pts_l[i][valid_mask].T
+                pts_r_valid = pts_r[i][valid_mask].T
+                X_h = cv2.triangulatePoints(p_l, p_r, pts_l_valid, pts_r_valid)
                 pts_3d[i][valid_mask] = (X_h[:3] / X_h[3]).T
         
         return pts_3d
@@ -199,7 +242,7 @@ class Triangulator:
                 rkmat, self.D_r, r2, p2, (w, h), cv2.CV_32FC1
             )
 
-            return lmap1, lmap2, rmap1, rmap2, q
+            return lmap1, lmap2, rmap1, rmap2, q, r1, p1 , p2, r1, r2
 
         elif mode == 'pseudo':
             # Calculate the 2D shift (dx, dy) to align principal points
@@ -248,52 +291,64 @@ class Triangulator:
         z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
         
         return point_cloud[z_filter], colors[z_filter], disparity
-    
-    def DBSCAN_cluster_filtering(self, points_np, eps=5, min_points=20, top_n=2):
-        """
-        Uses DBSCAN clustering algorithm and removes 3D outlier points clusters by keeping the largest 2 clusters (for 2 surgical tools).
-        Input: points_np (N, 3) numpy array
-        Output: filtering mask (N,) numpy array
-        """
-        if points_np.shape[0] == 0:
-            return points_np
 
-        #Convert NumPy array to Open3D PointCloud object
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points_np)
 
-        #Perform DBSCAN clustering
-        labels = np.array(pcd.cluster_dbscan(eps=eps, min_points=min_points))
-
-        if len(labels) == 0 or np.all(labels == -1):
-            return np.array([]) # Return empty if everything is noise
-
-        #Find the largest clusters
-        unique_labels, counts = np.unique(labels[labels >= 0], return_counts=True)
+    # def project_disparity_to_3d(self, disparity, q_matrix, rotation, p1, rect_l, rect_mask_l):
+    #     """
+    #     Transforms disparity to 3D, rotates it into the raw camera frame,
+    #     and corrects for rectification-induced principal point shift.
+    #     """
+    #         # Reproject
+    #     points_3d = cv2.reprojectImageTo3D(disparity, q_matrix)
+    #     h, w = points_3d.shape[:2]
+    #     points_flat = points_3d.reshape(-1, 3)
         
-        # Sort by count descending and take top_n
-        top_cluster_indices = unique_labels[np.argsort(counts)[::-1][:top_n]]
+    #     # Rotate ONLY
+    #     points_rotated = (rotation.T @ points_flat.T).T 
+    #     points_3d_final = points_rotated.reshape(h, w, 3)
+
+    #     # Masking
+    #     valid_mask = (rect_mask_l > 0) & (disparity > 0)
+    #     point_cloud = points_3d_final[valid_mask]
+    #     colors = rect_l[valid_mask][:, ::-1] / 255.0 
         
-        #Create mask for points belonging to the cluster
-        mask = np.isin(labels, top_cluster_indices)
+    #     # Filter points too close or too far
+    #     z_filter = (point_cloud[:, 2] > 0) & (point_cloud[:, 2] < 500)
         
-        return mask
-    
-    def adaptive_z_filtering(self, points_np, percentile=97):
+    #     return point_cloud[z_filter], colors[z_filter], disparity
+
+
+    def calculate_point_cloud_rectified(self, disparity_map, img_rect_l, rect_mask_l, P1):
         """
-        Isolates foreground objects by generating a boolean mask for points within a dynamic depth threshold calculated via percentiles.
-        Input: points_np (np.ndarray): (N, 3) array of point cloud coordinates (X, Y, Z).
-               percentile (float): The percentage of closest points to retain (0-100).
-        Output: np.ndarray: A boolean mask where True indicates points that passed the depth filter.
+        Calculates 3D points using the Focal Length and Principal Point 
+        extracted directly from the Rectified Projection Matrix (P1).
         """
-        # Assuming teh tools are the closest objects (True for Surgpose)
-        z_values = points_np[:, 2]
-        # Calculate a threshold that keeps the closest X% of points
-        z_threshold = np.percentile(z_values, percentile)
-        mask = z_values <= z_threshold
-        return mask
-
-    
-
-
-
+        # Extract intrinsic parameters from P1 (3x4 matrix)
+        # P1 = [f, 0, cx, 0]
+        #      [0, f, cy, 0]
+        #      [0, 0, 1,  0]
+        f = P1[0, 0]
+        cx = P1[0, 2]
+        cy = P1[1, 2]
+        
+        # Baseline from the translation vector (T)
+        B = np.linalg.norm(self.T)
+        
+        h, w = disparity_map.shape
+        u, v = np.meshgrid(np.arange(w), np.arange(h))
+        
+        # Calculate Depth (Z)
+        with np.errstate(divide='ignore'):
+            Z = (f * B) / disparity_map
+            
+        X = (u - cx) * Z / f
+        Y = (v - cy) * Z / f
+        
+        # Filter valid pixels
+        valid = (rect_mask_l > 0) & (disparity_map > 0) & (Z > 0) & (Z < 500)
+        
+        point_cloud = np.stack([X[valid], Y[valid], Z[valid]], axis=1)
+        #Use the rectified image for color alignment
+        colors = img_rect_l[valid] / 255.0
+        
+        return point_cloud, colors ,  disparity_map
