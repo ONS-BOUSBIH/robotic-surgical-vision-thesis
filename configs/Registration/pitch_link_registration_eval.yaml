@@ -1,0 +1,23 @@
+# List of video IDs to process
+LND_test_videos:
+  - '000001'
+  - '000004'
+  - '000007'
+  - '000030'
+  - '000033'
+
+# File paths
+kpts_predictions_folder: '/srv/homes/onbo10/thesis_main/results/Keypoints_detection/inference_results/triangulation/vitpose_pipeline/vitpose_triangulation_testset_rectified_kpts.json'
+3D_model_path: 'data/LND_3d_models/Large_Needle_Driver_420006/high_res/tool_pitch_link.OBJ'
+3D_model_kpts_path: 'data/LND_3d_models/Large_Needle_Driver_420006/high_res/tool_keypoints.json'
+3D_model_part_name: 'pitch_link'
+disparity_map_predictions_folder: 'results/Stereo_matching/Surgpose_test_disparity_maps/s2m2'
+registration_results_path: 'results/Registration/metrics/pitch_link_registration_eval_metrics.csv'
+
+# List of keypoint indices used for registration
+indices_of_registration_kpts_in_prediction:
+  - 1
+  - 2
+  - 5
+
+point_cloud_buffer_zone: 6
