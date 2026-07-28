@@ -12,8 +12,8 @@ kpts_predictions_folder: '/srv/homes/onbo10/thesis_main/results/Keypoints_detect
 3D_model_kpts_path: 'data/LND_3d_models/Large_Needle_Driver_420006/high_res/tool_keypoints.json'
 3D_model_part_name: 'pitch_link'
 disparity_map_predictions_folder: 'results/Stereo_matching/Surgpose_test_disparity_maps/s2m2'
-registration_results_path: 'results/Registration/metrics/pitch_link_registration_eval_metrics.csv'
-
+registration_results_path: 'results/Registration/metrics/pitch_link_registration_eval_metrics_4.csv'
+log_path: 'results/Registration/metrics/pitch_link_registration_log_3.log'
 # List of keypoint indices used for registration
 indices_of_registration_kpts_in_prediction:
   - 1

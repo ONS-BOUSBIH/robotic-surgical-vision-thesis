@@ -1,6 +1,7 @@
 
 import numpy as np
 import open3d as o3d
+import copy
 
 def register_cad_by_keypoints(mesh, cad_points, camera_points):
     """
@@ -51,7 +52,7 @@ def get_roi_from_skeleton_bounds(point_cloud, keypoints_list,colors=None, buffer
         return point_cloud[mask]
         
 
-def register_cad_to_pointcloud(initial_mesh, point_cloud_array, local_kpts_list, threshold = 2.0, buffer_zone=5.0, metrics_out= False):
+def register_cad_to_pointcloud(initial_mesh, point_cloud_array, local_kpts_list, threshold = 2, buffer_zone=5.0, metrics_out= False):#threshold=2
     # Get ROI based on the skeleton of the already-registered tool
     local_point_cloud = get_roi_from_skeleton_bounds(point_cloud_array, local_kpts_list, buffer=buffer_zone)
     
@@ -87,9 +88,10 @@ def register_cad_to_pointcloud(initial_mesh, point_cloud_array, local_kpts_list,
 
     result_mesh = initial_mesh.copy()
     result_mesh.apply_transform(reg_p2p.transformation)
-    cad_pcd.transform(reg_p2p.transformation)
+    cad_pcd_transformed=copy.deepcopy(cad_pcd)
+    cad_pcd_transformed.transform(reg_p2p.transformation)
     if metrics_out:
-        return result_mesh, reg_p2p.transformation , reg_p2p.fitness, reg_p2p.inlier_rmse, target_pcd, cad_pcd
+        return result_mesh, reg_p2p.transformation , reg_p2p.fitness, reg_p2p.inlier_rmse, target_pcd, cad_pcd, cad_pcd_transformed
     else:
         return result_mesh, reg_p2p.transformation
 
