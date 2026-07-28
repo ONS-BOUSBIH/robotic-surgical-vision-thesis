@@ -77,10 +77,11 @@ class SAM2SegmentationInferencer:
                     # Prepare points if they exist
                     if not bbox_check:
                         if len(kpts) > 0:
-                            indices = [0, len(kpts)//2, len(kpts)-1]
+                            # indices = [0, len(kpts)//2, len(kpts)-1]
+                            indices = list(range(len(kpts)))
                             # Wrap in an extra list so SAM treats them as points for ONE object
                             curr_points = [[kpts[i] for i in indices]] 
-                            curr_labels = [[1, 1, 1]] 
+                            curr_labels = [[1, 1, 1,1,1,1,1]] 
                             all_frame_points.extend([kpts[i] for i in indices])
 
                 

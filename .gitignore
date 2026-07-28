@@ -29,6 +29,7 @@ training_checkpoints*/
 training_chekpoints*/
 boxplots/
 *.csv
+*.log
 
 # OS generated files
 .DS_Store

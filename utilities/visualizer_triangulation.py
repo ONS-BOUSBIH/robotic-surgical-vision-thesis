@@ -44,6 +44,7 @@ class TriangulationVisualizer:
         df = pd.DataFrame(all_data)
         plt.figure(figsize=(10, 6))
         sns.violinplot(x=x_axis, y='Error (pixels)', data=df, inner="quartile", palette="muted")
+        plt.yscale('log') ###
         plt.title(title)
         plt.savefig(os.path.join(self.output_dir, f"{save_name}_violin.png"), dpi=300)
         
@@ -224,3 +225,51 @@ class TriangulationVisualizer:
         fig.show()
 
 
+    def plot_combined_3d(self, pts_3d, cloud_points, cloud_colors, frame_name):
+        """
+        pts_3d: (N_tools, N_joints, 3) reconstructed keypoints
+        cloud_points: (M, 3) dense point cloud
+        cloud_colors: (M, 3) [0, 1] RGB colors for cloud
+        """
+        fig = go.Figure()
+
+        # 1. Add Point Cloud Trace
+        rgb_colors = [f'rgb({int(c[0]*255)}, {int(c[1]*255)}, {int(c[2]*255)})' for c in cloud_colors]
+        fig.add_trace(go.Scatter3d(
+            x=cloud_points[:, 0], y=cloud_points[:, 2], z=-cloud_points[:, 1], # Aligning to your coordinate system
+            mode='markers',
+            marker=dict(size=1, color=rgb_colors, opacity=0.5),
+            name='S2M2 Cloud'
+        ))
+
+        # 2. Add Skeleton Traces
+        for t_idx in range(pts_3d.shape[0]):
+            tool_pts = pts_3d[t_idx]
+            if np.isnan(tool_pts).any(): continue
+
+            # Add Joints
+            fig.add_trace(go.Scatter3d(
+                x=tool_pts[:, 0], y=tool_pts[:, 2], z=-tool_pts[:, 1],
+                mode='markers',
+                marker=dict(size=6, color=self.tool_colors[t_idx]),
+                name=f'Tool {t_idx} Joints'
+            ))
+
+            # Add Lines (Skeleton)
+            for start, end in self.edges:
+                fig.add_trace(go.Scatter3d(
+                    x=[tool_pts[start, 0], tool_pts[end, 0]],
+                    y=[tool_pts[start, 2], tool_pts[end, 2]],
+                    z=[-tool_pts[start, 1], -tool_pts[end, 1]],
+                    mode='lines',
+                    line=dict(color=self.tool_colors[t_idx], width=5),
+                    showlegend=False
+                ))
+
+        fig.update_layout(
+            title=f"Reconstruction: {frame_name}",
+            scene=dict(aspectmode='data'),
+            margin=dict(l=0, r=0, b=0, t=40)
+        )
+        fig.show()
+    
