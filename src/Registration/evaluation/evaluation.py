@@ -23,8 +23,6 @@ def calculate_chamfer_distance(mesh_pcd, target_pcd):
     #Compute distances 
     dists_mesh_to_target = np.asarray(mesh_pcd.compute_point_cloud_distance(target_pcd))
     dists_target_to_mesh = np.asarray(target_pcd.compute_point_cloud_distance(mesh_pcd))
-    
-    #Average the two directional distances
-    cd = (np.mean(dists_mesh_to_target) + np.mean(dists_target_to_mesh)) / 2
-    return cd
-
+    # Compute squared distances and the final average
+    cd_squared = (np.mean(dists_mesh_to_target**2) + np.mean(dists_target_to_mesh**2)) / 2
+    return cd_squared

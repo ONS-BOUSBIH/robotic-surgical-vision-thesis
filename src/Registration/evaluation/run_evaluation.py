@@ -16,6 +16,7 @@ import argparse
 import yaml
 from tqdm import tqdm
 import csv
+import logging 
 
 def run_evaluation_one_instance(vid_id, frame_name, predicted_kpts_path, mesh_path, mesh_kpts_file_path, disparity_map_folder_root, part_name, buffer_zone, kpts_idx_list=[1,2,5]):
     
@@ -67,9 +68,9 @@ def run_evaluation_one_instance(vid_id, frame_name, predicted_kpts_path, mesh_pa
     
     # Register the 3D model to the point cloud usisng the last registration state as initialisation
 
-    model_3d_icp_left, T_icp_left, left_fitness, left_rmse, left_target_pcd, left_cad_mesh=register_cad_to_pointcloud(registered_model_3d_left, 
+    model_3d_icp_left, T_icp_left, left_fitness, left_rmse, left_target_pcd, left_cad_mesh_initial, left_cad_mesh_tramsformed=register_cad_to_pointcloud(registered_model_3d_left, 
                                                                                                                       instruments_clouds[0], camera_points_left, metrics_out=True,buffer_zone=buffer_zone)
-    model_3d_icp_right, T_icp_right, right_fitness, right_rmse, right_target_pcd, right_cad_mesh=register_cad_to_pointcloud(registered_model_3d_right, 
+    model_3d_icp_right, T_icp_right, right_fitness, right_rmse, right_target_pcd, right_cad_mesh_initial, right_cad_mesh_transformed=register_cad_to_pointcloud(registered_model_3d_right, 
                                                                                                                             instruments_clouds[1], camera_points_right, metrics_out=True,buffer_zone=buffer_zone)
     
     model_3d_icp_kpts_left= apply_transformation_on_CAD_kpts(model_3d_cad_kpts_left,T_icp_left)
@@ -83,26 +84,38 @@ def run_evaluation_one_instance(vid_id, frame_name, predicted_kpts_path, mesh_pa
     tre_left_2=calculate_tre(model_3d_icp_kpts_left, camera_points_left)
     tre_right_2=calculate_tre(model_3d_icp_kpts_right, camera_points_right)
     
+    cd_initial_left=calculate_chamfer_distance(left_cad_mesh_initial,left_target_pcd)
+    cd_initial_right=calculate_chamfer_distance(right_cad_mesh_initial,right_target_pcd)
+
     # Compute the Chamfer distance between the registered mesh and the adequte point cloud surface
-    cd_left=calculate_chamfer_distance(left_cad_mesh,left_target_pcd)
-    cd_right=calculate_chamfer_distance(right_cad_mesh,right_target_pcd)
+    cd_left=calculate_chamfer_distance(left_cad_mesh_tramsformed,left_target_pcd)
+    cd_right=calculate_chamfer_distance(right_cad_mesh_transformed,right_target_pcd)
 
-    return tre_left_1, tre_right_1, cd_left, cd_right, tre_left_2, tre_right_2, left_fitness, right_fitness, left_rmse, right_rmse
+    return tre_left_1, tre_right_1, cd_left, cd_right, cd_initial_left, cd_initial_right, tre_left_2, tre_right_2, left_fitness, right_fitness, left_rmse, right_rmse
 
 
-def run_evaluation_test_set(videos_list, predicted_kpts_path, mesh_path, mesh_kpts_file_path, disparity_map_folder_root, output_path, part_name='pitch_link', buffer_zone=6.0, kpts_idx_list=[1, 2, 5]):
+def run_evaluation_test_set(videos_list, predicted_kpts_path, mesh_path, mesh_kpts_file_path, disparity_map_folder_root, output_path,log_path, part_name='pitch_link', buffer_zone=6.0, kpts_idx_list=[1, 2, 5]):
     root_path = Path(disparity_map_folder_root)
     output_file = Path(output_path)
-    
+    log_path =  Path(log_path)
     # Define header for the CSV
     header = [
             'vid_id', 'frame_name', 
             'Mean_TRE_L1', 'RMSE_TRE_L1', 'Mean_TRE_R1', 'RMSE_TRE_R1', # Method 1
             'Mean_TRE_L2', 'RMSE_TRE_L2', 'Mean_TRE_R2', 'RMSE_TRE_R2', # Method 2
             'Chamfer_L', 'Chamfer_R',
+            'Chamfer_initial_L', 'Chamfer_initial_R',
             'Fitness_L', 'Fitness_R',
             'RMSE_ICP_L', 'RMSE_ICP_R'
             ]
+    
+    # Configure logging
+    logging.basicConfig(
+        filename=log_path,
+        filemode='a',
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        level=logging.ERROR
+    )
 
     # Create file and write header if it doesn't exist
     if not output_file.exists():
@@ -122,7 +135,7 @@ def run_evaluation_test_set(videos_list, predicted_kpts_path, mesh_path, mesh_kp
             frame_name = frame_file.stem 
             
             try:
-                tre_left1, tre_right1, cd_left, cd_right, tre_left2, tre_right2, fit_left, fit_right, rmse_left, rmse_right = run_evaluation_one_instance(
+                tre_left1, tre_right1, cd_left, cd_right,cd_initial_left, cd_initial_right, tre_left2, tre_right2, fit_left, fit_right, rmse_left, rmse_right = run_evaluation_one_instance(
                     vid_id=vid_id,
                     frame_name=frame_name,
                     predicted_kpts_path=predicted_kpts_path,
@@ -139,12 +152,15 @@ def run_evaluation_test_set(videos_list, predicted_kpts_path, mesh_path, mesh_kp
                                     vid_id, frame_name,
                                     tre_left1[0], tre_left1[1], tre_right1[0], tre_right1[1],  # Method 1 errors
                                     tre_left2[0], tre_left2[1], tre_right2[0], tre_right2[1],  # Method 2 errors
-                                    cd_left, cd_right,                                  # Chamfer Distances
+                                    cd_left, cd_right,  
+                                    cd_initial_left, cd_initial_right, # Chamfer Distances
                                     fit_left, fit_right,                                # Fitness
                                     rmse_left, rmse_right                               # ICP Inlier RMSE
                                 ])
             except Exception as e:
-                print(f"Failed to process {frame_name}: {e}")
+                error_msg = f"Failed to process {vid_id}/{frame_name}: {str(e)}"
+                logging.error(error_msg)
+                print(f"Error logged for {frame_name}")
 
     print(f"Evaluation finished. Results updated in {output_path}")
 
@@ -165,9 +181,10 @@ def main():
     kpts_idx_list= config_data['indices_of_registration_kpts_in_prediction']
     tool_part_name= config_data['3D_model_part_name']
     buffer_zone=config_data['point_cloud_buffer_zone']
+    log_path= config_data['log_path']
 
     run_evaluation_test_set(videos_list, predicted_kpts_path, mesh_path, mesh_kpts_file_path, 
-                            disparity_map_folder_root, output_path, part_name=tool_part_name, buffer_zone=buffer_zone, kpts_idx_list=kpts_idx_list)
+                            disparity_map_folder_root, output_path,log_path=log_path, part_name=tool_part_name, buffer_zone=buffer_zone, kpts_idx_list=kpts_idx_list)
 
 if __name__=='__main__':
     main()
