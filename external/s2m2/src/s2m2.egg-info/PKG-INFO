@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: s2m2
+Version: 0.1.0
+Summary: Scalable Stereo Matching Model (ICCV2025)
+Author-email: Junhong Min <junhong1.min@samsung.com>
+Requires-Python: >=3.10
+License-File: LICENSE.md
+Requires-Dist: torch
+Requires-Dist: opencv-python
+Requires-Dist: numpy
+Dynamic: license-file
