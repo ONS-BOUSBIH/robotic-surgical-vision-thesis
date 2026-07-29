@@ -1,5 +1,5 @@
 # Model 
-model: sam2_b.pt
+model: weights/original_weights/SAM2/sam2_b.pt
 
 # Data 
 images: data/SurgPose/SurgPose_for_HRNet/Extracted_right_test/extracted_frames  

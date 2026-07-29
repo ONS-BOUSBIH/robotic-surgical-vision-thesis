@@ -1,0 +1,13 @@
+Timestamp,Model,Images,Instances,Precision,Recall,mAP50,mAP50-95,Weights_Path
+2026-02-23 12:52:31,HRNet Cropped,3073,3073,0.9997,0.9997,0.9950,0.9401,results/Keypoints_detection/training_results/HRNet_trainings/Experiment3/training_chekpoints2026-01-11_18-05-32/model_epoch200.pth
+2026-02-23 12:53:22,ViTpose-B-simple,3073,3073,0.9997,0.9997,0.9950,0.9923,results/Keypoints_detection/training_results/ViTpose_trainings/Experiment1/best_coco_AP_epoch_160.pth
+2026-02-23 12:54:43,YOLOv8x-pose,1884,3073,0.8273,0.9945,0.8701,0.6614,results/Keypoints_detection/training_results/YOLO_trainings/YOLO_Pose_Experiment1/weights/last.pt
+2026-02-23 12:56:02,YOLOv8x-pose(Adam),1884,3073,0.8248,0.9951,0.8789,0.6833,results/Keypoints_detection/training_results/YOLO_trainings/YOLO_Pose_Experiment2/weights/last.pt
+2026-02-23 12:57:59,HRNET full image 256*192 with aug,1884,3073,0.8943,0.9343,0.9129,0.3865,results/Keypoints_detection/training_results/HRNet_trainings/Experiment1/training_checkpoints2026-02-18_14-32-56/model_epoch200.pth
+2026-02-23 12:59:57,HRNET full image 256*192 without aug,1884,3073,0.9059,0.9300,0.9031,0.3872,results/Keypoints_detection/training_results/HRNet_trainings/Experiment1/training_checkpoints2026-02-12_10-49-28/model_epoch200.pth
+2026-02-23 13:02:09,HRNET full image 704*512 with aug,1884,3073,0.9884,0.9997,0.9895,0.9013,results/Keypoints_detection/training_results/HRNet_trainings/Experiment2/training_checkpoints2026-02-12_11-06-15/model_epoch200.pth
+2026-02-23 13:04:13,Pipeline: Yolov8 + ViTpose,2004,,0.9920,0.9918,0.9912,0.9830,results/Keypoints_detection/training_results/ViTpose_trainings/Experiment1/best_coco_AP_epoch_160.pth
+2026-02-23 13:07:22,Pipeline: Yolov8 + HRNet,2004,,0.9915,0.9913,0.9912,0.9227,results/Keypoints_detection/training_results/ViTpose_trainings/Experiment1/best_coco_AP_epoch_160.pth
+2026-03-04 14:11:49,HRNet Cropped,3073,3073,0.9997,0.9997,0.9950,0.9401,results/Keypoints_detection/training_results/HRNet_trainings/Experiment3/training_chekpoints2026-01-11_18-05-32/model_epoch200.pth
+2026-03-04 14:15:52,HRNet Cropped data aug,3073,3073,0.9999,0.9997,0.9950,0.9463,/srv/homes/onbo10/thesis_main/results/Keypoints_detection/training_results/HRNet_trainings/Experiment3/training_checkpoints2026-03-02_23-16-42/model_epoch200.pth
+2026-03-04 14:32:22,Pipeline: Yolov8 + HRNet data aug,2004,,0.9917,0.9915,0.9915,0.9313,results/Keypoints_detection/training_results/HRNet_trainings/Experiment3/training_checkpoints2026-03-02_23-16-42/model_epoch200.pth
