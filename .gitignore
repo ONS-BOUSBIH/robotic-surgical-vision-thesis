@@ -1,6 +1,6 @@
 # Large Files (NEVER upload these)
 *.jpg
-*.png
+# *.png
 *.jpeg
 *.zip
 
