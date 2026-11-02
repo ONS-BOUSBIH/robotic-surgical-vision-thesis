@@ -2,7 +2,7 @@
 
 ## Project Overview
 This repository contains the code for my thesis project focused detection and 3D reconstruction of Da Vinci robot's surgical tools from stereo images.
-Follow this link to read my thesis: [text](https://drive.google.com/file/d/1o7ufPgs8L7iSkve9Yd5BbqzbFeWjiXU3/view?usp=sharing)
+Follow this link to read my thesis: [link to the thesis](https://drive.google.com/file/d/1o7ufPgs8L7iSkve9Yd5BbqzbFeWjiXU3/view?usp=sharing)
 
 ## Project Structure
 - `configs/`: Model configuration files (.yaml, .py).
@@ -10,6 +10,3 @@ Follow this link to read my thesis: [text](https://drive.google.com/file/d/1o7uf
 - `notebooks/`: Research exploration and visualization.
 - `utilities/`: helper utils scripts (logging, visualization,...)
 
-## Setup
-Not fully usable yet, still under reviews and work!
-###                                        Coming soon!
